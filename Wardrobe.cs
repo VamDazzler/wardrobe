@@ -12,6 +12,10 @@ using UnityEngine;
  * 
  * Authors: chokaphi and VamDazzler
  * License: (needs discussion, Creative Commons with attribution if chokaphi agrees)
+ * 
+ * History:
+ * Jan 26, 2019 chokaphi: Proof of concept. Single clothing item, fixed file.
+ * Jan 27, 2019 VamDazzler: Generalization and UI.
  */
 namespace chokaphi_VamDazz
 {
@@ -73,7 +77,7 @@ namespace chokaphi_VamDazz
                 if( myPerson == null )
                     return;
 
-                // Reset the clothing items (which will cascade)
+                // Now that loading is complete, set our UI callbacks
                 clothingItems.setCallbackFunction = this.SelectClothingItem;
                 skinWraps.setCallbackFunction = this.SelectSkinWrap;
                 materials.setCallbackFunction = this.SelectMaterial;
@@ -81,10 +85,23 @@ namespace chokaphi_VamDazz
                 SelectClothingItem( null );
 
                 // Load all the previously saved replacements
+                List< string > badkeys = new List<string>();
                 foreach( KeyValuePair< string, string > entry in replacements.All() )
                 { 
-                    LoadSaved( entry.Value );
+                    try
+                    { 
+                        LoadSaved( entry.Value );
+                    }
+                    catch
+                    {
+                        SuperController.LogError( $"Could not load saved texture for {entry.Key}");
+                        badkeys.Add( entry.Key );
+                    }
                 }
+                badkeys.ForEach( k => replacements.Remove( k ) );
+
+                // Reset the UI (cascades)
+                SelectClothingItem( null );
 
                 // Allow updates to occur normally.
                 disableUpdate = false;
@@ -232,7 +249,7 @@ namespace chokaphi_VamDazz
             }
             else
             {
-                mat.SetTexture( "_MainTex", texture.tex );
+                mat.mainTexture = texture.tex;
             }
 
             // Now clear the UI
@@ -249,7 +266,12 @@ namespace chokaphi_VamDazz
             else
             {
                 SelectClothingItem( components.ElementAt( 1 ) );
+                if( myClothes == null )
+                    return;
+
                 SelectSkinWrap( components.ElementAt( 2 ) );
+                if( mySkin == null )
+                    return;
 
                 // Since the material is part of a filename, we have to select it somewhat differently.
                 string fname = components.ElementAt( 3 );
@@ -258,6 +280,8 @@ namespace chokaphi_VamDazz
                     .DefaultIfEmpty( null )
                     .SingleOrDefault();
                 SelectMaterial( matname );
+                if( myMaterial == null )
+                    return;
 
                 // The list of references should now be populated.
                 TextureReference texref = textureReferences
@@ -356,6 +380,11 @@ namespace chokaphi_VamDazz
             public void setTextureReplacement( string slot, string storedName )
             {
                 entries.Add( slot, storedName );
+            }
+
+            public void Remove( string slot )
+            {
+                entries.Remove( slot );
             }
 
             public IEnumerable< KeyValuePair< string, string > > All()
