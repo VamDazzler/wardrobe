@@ -11,7 +11,7 @@ using UnityEngine;
  * Replace 
  * 
  * Authors: chokaphi and VamDazzler
- * License: (needs discussion, Creative Commons with attribution if chokaphi agrees)
+ * License: Creative Commons with Attribution (CC BY 3.0)
  * 
  * History:
  * Jan 26, 2019 chokaphi: Proof of concept. Single clothing item, fixed file.
