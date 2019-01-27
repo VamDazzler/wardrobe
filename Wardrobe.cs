@@ -227,7 +227,6 @@ namespace chokaphi_VamDazz
 
                 // Load the image and apply it to the material.
                 var mat = myMaterial; // scope the closure locally.
-                var upSave = ! disableUpdate;
                 var img = new ImageLoaderThreaded.QueuedImage();
                 img.imgPath = filenameFromStoreName( filename );
                 img.callback = qimg => SetTexture( mat, qimg );
@@ -250,6 +249,7 @@ namespace chokaphi_VamDazz
             else
             {
                 mat.mainTexture = texture.tex;
+                mat.SetTexture( "_AlphaTex", texture.tex );
             }
 
             // Now clear the UI
