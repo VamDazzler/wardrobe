@@ -15,7 +15,7 @@ using UnityEngine;
  * 
  * History:
  * Jan 26, 2019 chokaphi: Proof of concept. Single clothing item, fixed file.
- * Jan 27, 2019 VamDazzler: Generalization and UI.
+ * Jan 27, 2019 VamDazzler: Generalization, UI, and transparency fix.
  */
 namespace chokaphi_VamDazz
 {
@@ -85,20 +85,21 @@ namespace chokaphi_VamDazz
                 SelectClothingItem( null );
 
                 // Load all the previously saved replacements
-                List< string > badkeys = new List<string>();
                 foreach( KeyValuePair< string, string > entry in replacements.All() )
                 { 
                     try
                     { 
-                        LoadSaved( entry.Value );
+                        LoadSaved( entry.Key, entry.Value );
+                    }
+                    catch( Exception ex )
+                    {
+                        SuperController.LogError( $"Could not load saved texture for {entry.Key} {ex}" );
                     }
                     catch
                     {
-                        SuperController.LogError( $"Could not load saved texture for {entry.Key}");
-                        badkeys.Add( entry.Key );
+                        SuperController.LogError( $"Could not load saved texture for {entry.Key} (unknown reason)" );
                     }
                 }
-                badkeys.ForEach( k => replacements.Remove( k ) );
 
                 // Reset the UI (cascades)
                 SelectClothingItem( null );
@@ -170,7 +171,7 @@ namespace chokaphi_VamDazz
             {
                 mySkin = myClothes.GetComponentsInChildren< DAZSkinWrap >()
                     .Where( dsw => dsw.name == byName)
-                    .First();
+                    .FirstOrDefault();
 
                 List< string > materialNames = mySkin.GPUmaterials
                     .Select( mat => mat.name )
@@ -256,32 +257,26 @@ namespace chokaphi_VamDazz
             clothingItems.val = null;
         }
 
-        private void LoadSaved( string full )
+        private void LoadSaved( string slot, string full )
         {
-            string[] components = full.Split( '/' );
-            if( components.Length != 4 )
+            string[] components = slot.Split( '/' );
+            if( components.Length != 3 )
             {
                 SuperController.LogError( $"Found badly formatted replacement: {full}" );
             }
             else
             {
-                SelectClothingItem( components.ElementAt( 1 ) );
+                SelectClothingItem( components.ElementAt( 0 ) );
                 if( myClothes == null )
-                    return;
+                    throw new Exception( $"Could not get clothes '{components.ElementAt( 0 )}'" );
 
-                SelectSkinWrap( components.ElementAt( 2 ) );
+                SelectSkinWrap( components.ElementAt( 1 ) );
                 if( mySkin == null )
-                    return;
+                    throw new Exception( $"Could not get skin '{components.ElementAt( 1 )}'");
 
-                // Since the material is part of a filename, we have to select it somewhat differently.
-                string fname = components.ElementAt( 3 );
-                string matname = materials.choices
-                    .Where( mat => fname.StartsWith( mat ) )
-                    .DefaultIfEmpty( null )
-                    .SingleOrDefault();
-                SelectMaterial( matname );
+                SelectMaterial( components.ElementAt( 2 ) );
                 if( myMaterial == null )
-                    return;
+                    throw new Exception( $"Could not get material '{components.ElementAt( 2 )}'" );
 
                 // The list of references should now be populated.
                 TextureReference texref = textureReferences
@@ -379,7 +374,7 @@ namespace chokaphi_VamDazz
 
             public void setTextureReplacement( string slot, string storedName )
             {
-                entries.Add( slot, storedName );
+                entries[ slot ] = storedName;
             }
 
             public void Remove( string slot )
