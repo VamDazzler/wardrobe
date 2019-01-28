@@ -3,7 +3,7 @@ Wardrobe: Change textures on VirtaMate clothes
 
 To use this plugin:
 
-- Put Wardrobe.cs into <vam>/Saves/Scripts
+- Put Wardrobe.cs into `<vam>/Saves/Scripts`
 - Put clothing textures into either scene or global texture directory
   for the particular piece of clothing
 - Start a scene with a character having clothes on
