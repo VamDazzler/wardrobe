@@ -70,7 +70,7 @@ namespace chokaphi_VamDazz
                 if (dumpButton != null)
                 {
                     dumpButton.button.onClick.AddListener(DumpButtonCallback);
-                    EnableDumpButton(false);
+                    dumpButton.button.interactable = false;
                 }
             }
             catch( Exception ex )
@@ -163,7 +163,9 @@ namespace chokaphi_VamDazz
                     .ToList();
                 clothings.Insert( 0, "REFRESH" );
                 clothingItems.choices = clothings;
-                EnableDumpButton(false);
+
+                // No clothing selected, disable dumping OBJs.
+                dumpButton.button.interactable = false
             }
             else if( clothingName == "REFRESH" )
             {
@@ -189,7 +191,8 @@ namespace chokaphi_VamDazz
                     skinWraps.val = skinChoices.ElementAt( 0 );
                 }
 
-                EnableDumpButton(true);
+                // Enable the button to dump the OBJs with UVs intact.
+                dumpButton.button.interactable = enable;
             }
         }
 
@@ -464,13 +467,6 @@ namespace chokaphi_VamDazz
             }
         }
 
-        private static List< string > EMPTY_CHOICES = new List< string >();
-
-        void EnableDumpButton(bool enable)
-        {
-            dumpButton.button.interactable = enable;
-        }
-
         public void DumpButtonCallback()
         {
             if (myClothes == null)
@@ -495,4 +491,6 @@ namespace chokaphi_VamDazz
             }
         }
     }
+
+    private static List< string > EMPTY_CHOICES = new List< string >();
 }
