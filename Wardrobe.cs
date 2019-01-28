@@ -69,6 +69,49 @@ namespace chokaphi_VamDazz
             }
         }
 
+        private bool needsLoad;
+
+        public void Update()
+        {
+            try
+            { 
+                if( needsLoad && ! SuperController.singleton.isLoading )
+                {
+                    // Load all the previously saved replacements
+                    foreach( KeyValuePair< string, string > entry in replacements.All() )
+                    { 
+                        try
+                        { 
+                            LoadSaved( entry.Key, entry.Value );
+                        }
+                        catch( Exception ex )
+                        {
+                            SuperController.LogError( $"Could not load saved texture for {entry.Key} {ex}" );
+                        }
+                        catch
+                        {
+                            SuperController.LogError( $"Could not load saved texture for {entry.Key} (unknown reason)" );
+                        }
+                    }
+
+                    // Reset the UI (cascades)
+                    SelectClothingItem( null );
+
+                    // Allow updates to occur normally.
+                    disableUpdate = false;
+                    needsLoad = false;
+                }
+            }
+            catch( Exception ex )
+            {
+                if( ! disableUpdate )
+                { 
+                    SuperController.LogError( "Error while updating " + ex );
+                    disableUpdate = true;
+                }
+            }
+        }
+
         void Start()
         {
             try
@@ -84,28 +127,7 @@ namespace chokaphi_VamDazz
                 textures.setCallbackFunction = this.SelectTexture;
                 SelectClothingItem( null );
 
-                // Load all the previously saved replacements
-                foreach( KeyValuePair< string, string > entry in replacements.All() )
-                { 
-                    try
-                    { 
-                        LoadSaved( entry.Key, entry.Value );
-                    }
-                    catch( Exception ex )
-                    {
-                        SuperController.LogError( $"Could not load saved texture for {entry.Key} {ex}" );
-                    }
-                    catch
-                    {
-                        SuperController.LogError( $"Could not load saved texture for {entry.Key} (unknown reason)" );
-                    }
-                }
-
-                // Reset the UI (cascades)
-                SelectClothingItem( null );
-
-                // Allow updates to occur normally.
-                disableUpdate = false;
+                needsLoad = true;
             }
             catch( Exception ex )
             {
@@ -262,7 +284,7 @@ namespace chokaphi_VamDazz
             string[] components = slot.Split( '/' );
             if( components.Length != 3 )
             {
-                SuperController.LogError( $"Found badly formatted replacement: {full}" );
+                SuperController.LogError( $"Found badly formatted replacement: {slot}" );
             }
             else
             {
