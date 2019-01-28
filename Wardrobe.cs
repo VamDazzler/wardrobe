@@ -7,12 +7,12 @@ using UnityEngine;
 
 /**
  * Cloth texture replacer.
- * 
- * Replace 
- * 
+ *
+ * Replace
+ *
  * Authors: chokaphi and VamDazzler
  * License: Creative Commons with Attribution (CC BY 3.0)
- * 
+ *
  * History:
  * Jan 26, 2019 chokaphi: Proof of concept. Single clothing item, fixed file.
  * Jan 27, 2019 VamDazzler: Generalization, UI, and transparency fix.
@@ -27,13 +27,13 @@ namespace chokaphi_VamDazz
         //person script is attatched too
         Atom myPerson;
         JSONStorableStringChooser clothingItems, skinWraps, materials, textures;
-		UIDynamicButton dumpButton;
+        UIDynamicButton dumpButton;
         StorableReplacements replacements;
 
         public override void Init()
         {
             try
-            { 
+            {
                 disableUpdate = true;
                 pluginLabelJSON.val = "Wardrobe (by VamDazzler and chokaphi)";
 
@@ -65,14 +65,14 @@ namespace chokaphi_VamDazz
                 replacements = new StorableReplacements();
                 RegisterString( replacements );
 
-				// Create a dump button
-				dumpButton = CreateButton("Dump obj file - look in root");
-				if (dumpButton != null)
-				{
-					dumpButton.button.onClick.AddListener(DumpButtonCallback);
-					EnableDumpButton(false);
-				}
-			}
+                // Create a dump button
+                dumpButton = CreateButton("Dump obj file - look in root");
+                if (dumpButton != null)
+                {
+                    dumpButton.button.onClick.AddListener(DumpButtonCallback);
+                    EnableDumpButton(false);
+                }
+            }
             catch( Exception ex )
             {
                 SuperController.LogError( $"Could not initialize Wardrobe {ex}" );
@@ -84,14 +84,14 @@ namespace chokaphi_VamDazz
         public void Update()
         {
             try
-            { 
+            {
                 if( needsLoad && ! SuperController.singleton.isLoading )
                 {
                     // Load all the previously saved replacements
                     foreach( KeyValuePair< string, string > entry in replacements.All() )
-                    { 
+                    {
                         try
-                        { 
+                        {
                             LoadSaved( entry.Key, entry.Value );
                         }
                         catch( Exception ex )
@@ -115,7 +115,7 @@ namespace chokaphi_VamDazz
             catch( Exception ex )
             {
                 if( ! disableUpdate )
-                { 
+                {
                     SuperController.LogError( "Error while updating " + ex );
                     disableUpdate = true;
                 }
@@ -125,7 +125,7 @@ namespace chokaphi_VamDazz
         void Start()
         {
             try
-            { 
+            {
                 // No point if we don't have a person.
                 if( myPerson == null )
                     return;
@@ -163,15 +163,15 @@ namespace chokaphi_VamDazz
                     .ToList();
                 clothings.Insert( 0, "REFRESH" );
                 clothingItems.choices = clothings;
-				EnableDumpButton(false);
-			}
+                EnableDumpButton(false);
+            }
             else if( clothingName == "REFRESH" )
             {
                 // call us again with no value.
                 clothingItems.val = null;
             }
             else
-            { 
+            {
                 myClothes = FindObjectsOfType< DAZClothingItem >()
                     .Where( dci => dci.name == clothingName )
                     .First();
@@ -189,15 +189,15 @@ namespace chokaphi_VamDazz
                     skinWraps.val = skinChoices.ElementAt( 0 );
                 }
 
-				EnableDumpButton(true);
-			}
+                EnableDumpButton(true);
+            }
         }
 
         private void SelectSkinWrap( string byName )
         {
             SelectMaterial( null );
             if( byName == null )
-            { 
+            {
                 mySkin = null;
                 skinWraps.choices = EMPTY_CHOICES;
                 skinWraps.valNoCallback = null;
@@ -243,7 +243,7 @@ namespace chokaphi_VamDazz
                     .Select( tr => tr.displayName )
                     .ToList();
 
-                // Note: Don't preselect here, because found texture 
+                // Note: Don't preselect here, because found texture
                 //       may not be what the user is expecting.
             }
         }
@@ -332,7 +332,7 @@ namespace chokaphi_VamDazz
         private static string filenameFromStoreName( string storedName )
         {
             if( storedName.StartsWith( "./" ) )
-            { 
+            {
                 return $"{SuperController.singleton.currentLoadDir}/Textures/{storedName.Remove( 0, 2 )}";
             }
             else
@@ -350,13 +350,13 @@ namespace chokaphi_VamDazz
                 // Add scene-local files to the list.
                 string dir = $"{SuperController.singleton.currentLoadDir}/Textures/{indir}";
                 textures.AddRange( SuperController.singleton
-                    .GetFilesAtPath( dir )
-                    .Select( fp => fp.Remove( 0, dir.Length + 1 ) )
-                    .Where( fp => fp.StartsWith( withbasename ) )
-                    .Select( fp => new TextureReference( $"<scene>/{fp}", $"./{indir}/{fp}" ) ) );
+                                   .GetFilesAtPath( dir )
+                                   .Select( fp => fp.Remove( 0, dir.Length + 1 ) )
+                                   .Where( fp => fp.StartsWith( withbasename ) )
+                                   .Select( fp => new TextureReference( $"<scene>/{fp}", $"./{indir}/{fp}" ) ) );
             }
             catch
-            { 
+            {
                 // This space intentionally blank
             }
 
@@ -365,20 +365,20 @@ namespace chokaphi_VamDazz
                 // Add global texture files to the list.
                 string dir = $"{SuperController.singleton.savesDir}/../Textures/{indir}";
                 textures.AddRange( SuperController.singleton
-                    .GetFilesAtPath( dir )
-                    .Select( fp => fp.Remove( 0, dir.Length + 1 ) )
-                    .Where( fp => fp.StartsWith( withbasename ) )
-                    .Select( fp => new TextureReference( $"<global>/{fp}", $"/{indir}/{fp}" ) ) );
-                    
+                                   .GetFilesAtPath( dir )
+                                   .Select( fp => fp.Remove( 0, dir.Length + 1 ) )
+                                   .Where( fp => fp.StartsWith( withbasename ) )
+                                   .Select( fp => new TextureReference( $"<global>/{fp}", $"/{indir}/{fp}" ) ) );
+
             }
             catch
             {
                 // This space intentionally blank
             }
 
-            
+
             if( textures.Count() == 0 )
-            { 
+            {
                 SuperController.LogMessage( "Could not find a replacement texture at either the scene or global Vam directory" );
                 SuperController.LogMessage( $"To replace this material, place a texture file named '{withbasename}.[png|jpg]'in 'Textures/{indir}'" );
             }
@@ -390,7 +390,7 @@ namespace chokaphi_VamDazz
         {
             public string displayName;
             public string filename;
- 
+
             public TextureReference( string displayName, string filename )
             {
                 this.displayName = displayName;
@@ -466,33 +466,33 @@ namespace chokaphi_VamDazz
 
         private static List< string > EMPTY_CHOICES = new List< string >();
 
-		void EnableDumpButton(bool enable)
-		{
-			dumpButton.button.interactable = enable;
-		}
+        void EnableDumpButton(bool enable)
+        {
+            dumpButton.button.interactable = enable;
+        }
 
-		public void DumpButtonCallback()
-		{
-			if (myClothes == null)
-			{
-				SuperController.LogMessage("Select a clothing item first");
-				return; // shouldn't get here
-			}
+        public void DumpButtonCallback()
+        {
+            if (myClothes == null)
+            {
+                SuperController.LogMessage("Select a clothing item first");
+                return; // shouldn't get here
+            }
 
-			DAZSkinWrap[] skinWraps = myClothes.GetComponentsInChildren<DAZSkinWrap>(true);
-			if (skinWraps==null)
-			{
-				SuperController.LogMessage("No Skin Wraps found");
-				return; 
-			}
+            DAZSkinWrap[] skinWraps = myClothes.GetComponentsInChildren<DAZSkinWrap>(true);
+            if (skinWraps==null)
+            {
+                SuperController.LogMessage("No Skin Wraps found");
+                return;
+            }
 
-			OBJExporter exporter = new OBJExporter();
-			for (int i=0;i<skinWraps.Length;i++)
-			{
-				DAZMesh mesh = skinWraps[i].dazMesh;
-				// use the mesh and the built in OBJExporter
-				exporter.Export(myClothes.name + i + ".obj", mesh.uvMappedMesh, mesh.uvMappedMesh.vertices, mesh.uvMappedMesh.normals, mesh.materials);
-			}
-		}
-	}
+            OBJExporter exporter = new OBJExporter();
+            for (int i=0;i<skinWraps.Length;i++)
+            {
+                DAZMesh mesh = skinWraps[i].dazMesh;
+                // use the mesh and the built in OBJExporter
+                exporter.Export(myClothes.name + i + ".obj", mesh.uvMappedMesh, mesh.uvMappedMesh.vertices, mesh.uvMappedMesh.normals, mesh.materials);
+            }
+        }
+    }
 }
