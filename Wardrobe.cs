@@ -16,6 +16,7 @@ using UnityEngine;
  * History:
  * Jan 26, 2019 chokaphi: Proof of concept. Single clothing item, fixed file.
  * Jan 27, 2019 VamDazzler: Generalization, UI, and transparency fix.
+ * Jan 28, 2019 VamSander: Added an export obj button.
  */
 namespace chokaphi_VamDazz
 {
@@ -26,6 +27,7 @@ namespace chokaphi_VamDazz
         //person script is attatched too
         Atom myPerson;
         JSONStorableStringChooser clothingItems, skinWraps, materials, textures;
+		UIDynamicButton dumpButton;
         StorableReplacements replacements;
 
         public override void Init()
@@ -62,7 +64,15 @@ namespace chokaphi_VamDazz
                 // Create the slot in which all changed textures are stored.
                 replacements = new StorableReplacements();
                 RegisterString( replacements );
-            }
+
+				// Create a dump button
+				dumpButton = CreateButton("Dump obj file - look in root");
+				if (dumpButton != null)
+				{
+					dumpButton.button.onClick.AddListener(DumpButtonCallback);
+					EnableDumpButton(false);
+				}
+			}
             catch( Exception ex )
             {
                 SuperController.LogError( $"Could not initialize Wardrobe {ex}" );
@@ -153,7 +163,8 @@ namespace chokaphi_VamDazz
                     .ToList();
                 clothings.Insert( 0, "REFRESH" );
                 clothingItems.choices = clothings;
-            }
+				EnableDumpButton(false);
+			}
             else if( clothingName == "REFRESH" )
             {
                 // call us again with no value.
@@ -177,7 +188,9 @@ namespace chokaphi_VamDazz
                     // Pre-select if there's only one skin
                     skinWraps.val = skinChoices.ElementAt( 0 );
                 }
-            }
+
+				EnableDumpButton(true);
+			}
         }
 
         private void SelectSkinWrap( string byName )
@@ -452,5 +465,34 @@ namespace chokaphi_VamDazz
         }
 
         private static List< string > EMPTY_CHOICES = new List< string >();
-    }
+
+		void EnableDumpButton(bool enable)
+		{
+			dumpButton.button.interactable = enable;
+		}
+
+		public void DumpButtonCallback()
+		{
+			if (myClothes == null)
+			{
+				SuperController.LogMessage("Select a clothing item first");
+				return; // shouldn't get here
+			}
+
+			DAZSkinWrap[] skinWraps = myClothes.GetComponentsInChildren<DAZSkinWrap>(true);
+			if (skinWraps==null)
+			{
+				SuperController.LogMessage("No Skin Wraps found");
+				return; 
+			}
+
+			OBJExporter exporter = new OBJExporter();
+			for (int i=0;i<skinWraps.Length;i++)
+			{
+				DAZMesh mesh = skinWraps[i].dazMesh;
+				// use the mesh and the built in OBJExporter
+				exporter.Export(myClothes.name + i + ".obj", mesh.uvMappedMesh, mesh.uvMappedMesh.vertices, mesh.uvMappedMesh.normals, mesh.materials);
+			}
+		}
+	}
 }
