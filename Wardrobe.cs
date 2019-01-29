@@ -27,8 +27,22 @@ namespace chokaphi_VamDazz
         //person script is attatched too
         Atom myPerson;
         JSONStorableStringChooser clothingItems, skinWraps, materials, textures;
-        UIDynamicButton dumpButton;
+        UIDynamicButton applyButton, dumpButton;
+        JSONStorableBool asDiffuse, asCutout, asBump, asGloss, asNormal;
+        UIDynamicToggle asDiffuseButton, asCutoutButton, asBumpButton, asGlossButton, asNormalButton;
         StorableReplacements replacements;
+
+        // Indicate whether loading from the JSON has completed.
+        // Initial load of textures must wait until the clothes have all been loaded,
+        // which is not the case by the time of `Start` on a fresh start of VaM.
+        private bool needsLoad;
+
+        // Runtime use variables
+        private DAZClothingItem          myClothes;
+        private DAZSkinWrap              mySkin;
+        private Material                 myMaterial;
+        private List< TextureReference > textureReferences;
+        private TextureReference         textureFile;
 
         public override void Init()
         {
@@ -65,8 +79,29 @@ namespace chokaphi_VamDazz
                 replacements = new StorableReplacements();
                 RegisterString( replacements );
 
+                // Create the import options
+                asDiffuse = new JSONStorableBool( "Diffuse texture", true );
+                asCutout  = new JSONStorableBool( "Cutout", true );
+                asBump    = new JSONStorableBool( "Bump map", false );
+                asGloss   = new JSONStorableBool( "Glossy", false );
+                asNormal  = new JSONStorableBool( "Normal map", false );
+                asDiffuseButton = CreateToggle( asDiffuse );
+                asCutoutButton  = CreateToggle( asCutout );
+                asBumpButton    = CreateToggle( asBump );
+                asGlossButton   = CreateToggle( asGloss );
+                asNormalButton  = CreateToggle( asNormal );
+
+                // TODO: Currently disabled:
+                asNormalButton.toggle.interactable = false;
+
+                // Action to perform replacement
+                applyButton = CreateButton( "Apply" );
+                applyButton.button.onClick.AddListener( ApplyTexture );
+                
                 // Create a dump button
-                dumpButton = CreateButton("Dump obj file - look in root");
+                UIDynamic align = CreateSpacer( true );
+                align.height = 25;
+                dumpButton = CreateButton("Dump OBJ and MTL files - look in root", true);
                 if (dumpButton != null)
                 {
                     dumpButton.button.onClick.AddListener(DumpButtonCallback);
@@ -79,8 +114,6 @@ namespace chokaphi_VamDazz
             }
         }
 
-        private bool needsLoad;
-
         public void Update()
         {
             try
@@ -88,7 +121,7 @@ namespace chokaphi_VamDazz
                 if( needsLoad && ! SuperController.singleton.isLoading )
                 {
                     // Load all the previously saved replacements
-                    foreach( KeyValuePair< string, string > entry in replacements.All() )
+                    foreach( var entry in replacements.All() )
                     {
                         try
                         {
@@ -110,6 +143,17 @@ namespace chokaphi_VamDazz
                     // Allow updates to occur normally.
                     disableUpdate = false;
                     needsLoad = false;
+
+                    /* TEMPORARY (probing for shader properties. * /
+                    string propertyToTest = "_NormalMap";
+                    DAZClothingItem tc = GameObject.FindObjectsOfType< DAZClothingItem >().First();
+                    DAZSkinWrap ts = tc.GetComponentsInChildren< DAZSkinWrap >().First();
+                    Material tm = ts.GPUmaterials.First();
+                    if( tm.HasProperty( propertyToTest ) )
+                        SuperController.LogMessage( "Found " + propertyToTest );
+                    else
+                        SuperController.LogMessage( "Did not find " + propertyToTest );
+                    // */
                 }
             }
             catch( Exception ex )
@@ -145,11 +189,6 @@ namespace chokaphi_VamDazz
                 disableUpdate = true;
             }
         }
-
-        private DAZClothingItem          myClothes;
-        private DAZSkinWrap              mySkin;
-        private Material                 myMaterial;
-        private List< TextureReference > textureReferences;
 
         private void SelectClothingItem( string clothingName )
         {
@@ -243,11 +282,15 @@ namespace chokaphi_VamDazz
                 string subdir = $"{myClothes.name}/{mySkin.name}";
                 textureReferences = FindTextures( subdir, myMaterial.name );
                 textures.choices = textureReferences
-                    .Select( tr => tr.displayName )
+                    .Select( tr => tr.Abbreviation )
                     .ToList();
 
-                // Note: Don't preselect here, because found texture
-                //       may not be what the user is expecting.
+                if( textureReferences.Count == 1 )
+                {
+                    // Pre-select the single texture available
+                    textures.val = textureReferences.ElementAt( 0 ).Abbreviation;
+                }
+
             }
         }
 
@@ -256,30 +299,54 @@ namespace chokaphi_VamDazz
             if( byDisplayName == null )
             {
                 textures.val = null;
+                applyButton.button.enabled = false;
             }
             else
             {
-                string filename = textureReferences
-                    .Where( tr => tr.displayName == byDisplayName )
-                    .Select( tr => tr.filename )
+                TextureReference filename = textureReferences
+                    .Where( tr => tr.Abbreviation == byDisplayName )
                     .First();
 
-                // Load the image and apply it to the material.
-                var mat = myMaterial; // scope the closure locally.
-                var img = new ImageLoaderThreaded.QueuedImage();
-                img.imgPath = filenameFromStoreName( filename );
-                img.callback = qimg => SetTexture( mat, qimg );
-                ImageLoaderThreaded.singleton.QueueImage( img );
-
-                // Store this into the scene
-                if( ! disableUpdate )
-                {
-                    replacements.setTextureReplacement( $"{myClothes.name}/{mySkin.name}/{myMaterial.name}", filename );
-                }
+                textureFile = filename;
+                applyButton.button.enabled = true;
             }
         }
 
-        private void SetTexture( Material mat, ImageLoaderThreaded.QueuedImage texture )
+        private void ApplyTexture()
+        {
+            // Collect the shader textures to which we apply
+            List< string > texmap = new List< string >();
+            if( asDiffuse.val )
+                texmap.Add( PROP_DIFFUSE );
+            if( asCutout.val )
+                texmap.Add( PROP_CUTOUT );
+            if( asBump.val )
+                texmap.Add( PROP_BUMP );
+            if( asGloss.val )
+                texmap.Add( PROP_GLOSS );
+
+            // Let the user know they need to replace *something*
+            if( texmap.Count == 0 )
+            {
+                SuperController.LogMessage( "Select which texture(s) to replace before applying." );
+                return;
+            }
+
+            // Load the image and apply it to the material.
+            var mat = myMaterial; // scope the closure locally.
+            var img = new ImageLoaderThreaded.QueuedImage();
+            img.imgPath = textureFile.filename;
+            img.callback = qimg => SetTexture( texmap, mat, qimg );
+            ImageLoaderThreaded.singleton.QueueImage( img );
+
+            // Store this into the scene
+            if( ! disableUpdate )
+            {
+                replacements.setTextureReplacement( $"{myClothes.name}/{mySkin.name}/{myMaterial.name}", textureFile, texmap );
+            }
+        }
+
+        private void SetTexture( List< string > texmap, Material mat, ImageLoaderThreaded.QueuedImage texture )
         {
             if( texture.hadError )
             {
@@ -287,20 +354,19 @@ namespace chokaphi_VamDazz
             }
             else
             {
-                mat.mainTexture = texture.tex;
-                mat.SetTexture( "_AlphaTex", texture.tex );
+                texmap.ForEach( name => mat.SetTexture( name, texture.tex ) );
             }
 
             // Now clear the UI
             clothingItems.val = null;
         }
 
-        private void LoadSaved( string slot, string full )
+        private void LoadSaved( StorableSlot slot, TextureReference full )
         {
-            string[] components = slot.Split( '/' );
+            string[] components = slot.Material.Split( '/' );
             if( components.Length != 3 )
             {
-                SuperController.LogError( $"Found badly formatted replacement: {slot}" );
+                SuperController.LogError( $"Found badly formatted replacement material: {slot}" );
             }
             else
             {
@@ -318,7 +384,7 @@ namespace chokaphi_VamDazz
 
                 // The list of references should now be populated.
                 TextureReference texref = textureReferences
-                    .Where( tr => tr.filename == full )
+                    .Where( tr => tr.reference == full.reference )
                     .DefaultIfEmpty( null )
                     .FirstOrDefault();
                 if( texref == null )
@@ -327,20 +393,10 @@ namespace chokaphi_VamDazz
                 }
                 else
                 {
-                    SelectTexture( texref.displayName );
+                    // TODO: Set the properties
+                    SelectTexture( texref.Abbreviation );
+                    ApplyTexture();
                 }
-            }
-        }
-
-        private static string filenameFromStoreName( string storedName )
-        {
-            if( storedName.StartsWith( "./" ) )
-            {
-                return $"{SuperController.singleton.currentLoadDir}/Textures/{storedName.Remove( 0, 2 )}";
-            }
-            else
-            {
-                return $"{SuperController.singleton.savesDir}/../Textures/{storedName.Remove( 0, 1 )}";
             }
         }
 
@@ -356,7 +412,7 @@ namespace chokaphi_VamDazz
                                    .GetFilesAtPath( dir )
                                    .Select( fp => fp.Remove( 0, dir.Length + 1 ) )
                                    .Where( fp => fp.StartsWith( withbasename ) )
-                                   .Select( fp => new TextureReference( $"<scene>/{fp}", $"./{indir}/{fp}" ) ) );
+                                   .Select( fp => TextureReference.fromReference( $"./{indir}/{fp}" ) ) );
             }
             catch
             {
@@ -371,7 +427,7 @@ namespace chokaphi_VamDazz
                                    .GetFilesAtPath( dir )
                                    .Select( fp => fp.Remove( 0, dir.Length + 1 ) )
                                    .Where( fp => fp.StartsWith( withbasename ) )
-                                   .Select( fp => new TextureReference( $"<global>/{fp}", $"/{indir}/{fp}" ) ) );
+                                   .Select( fp => TextureReference.fromReference( $"/{indir}/{fp}" ) ) );
 
             }
             catch
@@ -387,84 +443,6 @@ namespace chokaphi_VamDazz
             }
 
             return textures;
-        }
-
-        private class TextureReference
-        {
-            public string displayName;
-            public string filename;
-
-            public TextureReference( string displayName, string filename )
-            {
-                this.displayName = displayName;
-                this.filename = filename;
-            }
-        }
-
-        private class StorableReplacements : JSONStorableString
-        {
-            private Dictionary< string, string > entries;
-
-            public StorableReplacements() : base( "replacements", "<placeholder>" )
-            {
-                entries = new Dictionary<string, string>();
-            }
-
-            public void setTextureReplacement( string slot, string storedName )
-            {
-                entries[ slot ] = storedName;
-            }
-
-            public void Remove( string slot )
-            {
-                entries.Remove( slot );
-            }
-
-            public IEnumerable< KeyValuePair< string, string > > All()
-            {
-                return entries;
-            }
-
-            public override void LateRestoreFromJSON( JSONClass jc, bool restorePhysical = true, bool restoreAppearance = true )
-            {
-                // This may not be necessary, I don't know the lifecycle of a JSONStorable well enough.
-                RestoreFromJSON( jc, restorePhysical, restoreAppearance );
-            }
-
-            public override bool NeedsLateRestore( JSONClass jc, bool restorePhysical = true, bool restoreAppearance = true )
-            {
-                return false;
-            }
-
-            public override bool NeedsRestore( JSONClass jc, bool restorePhysical = true, bool restoreAppearance = true )
-            {
-                return true;
-            }
-
-            public override void RestoreFromJSON( JSONClass jc, bool restorePhysical = true, bool restoreAppearance = true )
-            {
-                entries = new Dictionary<string, string>();
-                JSONClass replacements = jc["replacements"] as JSONClass;
-                if( replacements != null )
-                {
-                    foreach( String key in replacements.Keys )
-                    {
-                        entries.Add( key, replacements[key] );
-                    }
-                }
-            }
-
-            public override bool StoreJSON( JSONClass jc, bool includePhysical = true, bool includeAppearance = true )
-            {
-                var replacements = new JSONClass();
-                foreach( KeyValuePair< string, string > kvp in entries )
-                {
-                    replacements.Add( kvp.Key, kvp.Value );
-                }
-
-                jc.Add( "replacements", replacements );
-                return true;
-            }
         }
 
         public void DumpButtonCallback()
@@ -491,7 +469,182 @@ namespace chokaphi_VamDazz
             }
         }
 
+        private class StorableReplacements : JSONStorableString
+        {
+            private Dictionary< StorableSlot, TextureReference > entries = new Dictionary< StorableSlot, TextureReference >();
+
+            public StorableReplacements() : base( "replacements", "<placeholder>" )
+            {
+            }
+
+            public void setTextureReplacement( string slot, TextureReference storedName, List< string > shaderProps )
+            {
+                foreach( var property in shaderProps )
+                { 
+                    entries[ new StorableSlot( slot, property ) ] = storedName;
+                }
+            }
+
+            public IEnumerable< KeyValuePair< StorableSlot, TextureReference > > All()
+            {
+                return entries;
+            }
+
+            public override void LateRestoreFromJSON( JSONClass jc, bool restorePhysical = true, bool restoreAppearance = true )
+            {
+                // This may not be necessary, I don't know the lifecycle of a JSONStorable well enough.
+                RestoreFromJSON( jc, restorePhysical, restoreAppearance );
+            }
+
+            public override bool NeedsLateRestore( JSONClass jc, bool restorePhysical = true, bool restoreAppearance = true )
+            {
+                return false;
+            }
+
+            public override bool NeedsRestore( JSONClass jc, bool restorePhysical = true, bool restoreAppearance = true )
+            {
+                return true;
+            }
+
+            public override void RestoreFromJSON( JSONClass jc, bool restorePhysical = true, bool restoreAppearance = true )
+            {
+                entries = new Dictionary< StorableSlot, TextureReference >();
+                if( ! jc.Keys.Contains( "version" ) )
+                { 
+                    // this is version 1, the undocumented
+                    SuperController.LogMessage( "Detected version 1 texture replacements" );
+                    ParseReplacementsV1( jc[ "replacements" ] as JSONClass );
+                }
+                else
+                {
+                    // Assume the most recent version.
+                    ParseReplacements( jc[ "replacements" ] as JSONArray );
+                }
+            }
+
+            private void ParseReplacements( JSONArray replacements )
+            {
+                foreach( JSONClass obj in replacements )
+                {
+                    entries[ new StorableSlot( obj["slot"], obj["shader"] ) ] =
+                        TextureReference.fromReference( obj["texture"].Value );
+                }
+            }
+            
+            public override bool StoreJSON( JSONClass jc, bool includePhysical = true, bool includeAppearance = true )
+            {
+                var replacements = new JSONArray();
+                foreach( var kvp in entries )
+                {
+                    JSONClass obj = new JSONClass();
+                    obj["slot"] = kvp.Key.Material;
+                    obj["shader"] = kvp.Key.Property;
+                    obj["texture"] = kvp.Value.reference;
+                    replacements.Add( obj );
+                }
+
+                jc.Add( "version", new JSONData( 2 ) );
+                jc.Add( "replacements", replacements );
+                return true;
+            }
+
+            //
+            // Legacy support parsers
+
+            private void ParseReplacementsV1( JSONClass replacements )
+            {
+                foreach( JSONNode key in replacements.Keys )
+                {
+                    TextureReference texref = TextureReference.fromReference( replacements[key] );
+                    entries[ new StorableSlot( key, PROP_DIFFUSE ) ] = texref;
+                    entries[ new StorableSlot( key, PROP_CUTOUT ) ] = texref;
+                }
+            }
+        }
+
+        private class StorableSlot
+        {
+            public readonly string Material;
+            public readonly string Property;
+
+            public StorableSlot( string material, string property )
+            {
+                this.Material = material;
+                this.Property = property;
+            }
+
+            public override bool Equals( object obj )
+            {
+                if( obj is StorableSlot )
+                {
+                    StorableSlot s = (StorableSlot)obj;
+                    return s.Material == Material &&
+                        s.Property == Property;
+                }
+                return false;
+            }
+
+            public override int GetHashCode()
+            {
+                const int hashbase = 7;
+                const int hashmult = 13;
+                int hash = hashbase;
+                hash = (hash * hashmult) ^ (object.ReferenceEquals( Material, null ) ? 0 : Material.GetHashCode() );
+                hash = (hash * hashmult) ^ (object.ReferenceEquals( Property, null ) ? 0 : Material.GetHashCode() );
+                return hash;
+            }
+        }
+
+        private class TextureReference
+        {
+            public readonly bool local;
+            public readonly string reference;
+            public readonly string filename;
+            public string Abbreviation
+            {
+                get {
+                    var locality = local ? "<scene>" : "<global>";
+                    var basename = reference.Split( '/' ).Last();
+                    return $"{locality}/{basename}";
+                }
+            }
+
+            public TextureReference( bool local, string reference, string filename )
+            {
+                this.local = local;
+                this.reference = reference;
+                this.filename = filename;
+            }
+
+            public override string ToString()
+            {
+                return reference;
+            }
+
+            public static TextureReference fromReference( string storedName )
+            {
+                bool local;
+                string filename;
+                if( storedName.StartsWith( "./" ) )
+                {
+                    local = true;
+                    filename = $"{SuperController.singleton.currentLoadDir}/Textures/{storedName.Remove( 0, 2 )}";
+                }
+                else
+                {
+                    local = false;
+                    filename = $"{SuperController.singleton.savesDir}/../Textures/{storedName.Remove( 0, 1 )}";
+                }
+
+                return new TextureReference( local, storedName, filename );
+            }
+        }
+
         private static List< string > EMPTY_CHOICES = new List< string >();
+        private static readonly string PROP_DIFFUSE = "_MainTex";
+        private static readonly string PROP_CUTOUT  = "_AlphaTex";
+        private static readonly string PROP_BUMP    = "_BumpMap";
+        private static readonly string PROP_GLOSS   = "_GlossTex";
     }
 
 }
