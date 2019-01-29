@@ -165,7 +165,7 @@ namespace chokaphi_VamDazz
                 clothingItems.choices = clothings;
 
                 // No clothing selected, disable dumping OBJs.
-                dumpButton.button.interactable = false
+                dumpButton.button.interactable = false;
             }
             else if( clothingName == "REFRESH" )
             {
@@ -192,7 +192,7 @@ namespace chokaphi_VamDazz
                 }
 
                 // Enable the button to dump the OBJs with UVs intact.
-                dumpButton.button.interactable = enable;
+                dumpButton.button.interactable = true;
             }
         }
 
@@ -490,7 +490,8 @@ namespace chokaphi_VamDazz
                 exporter.Export(myClothes.name + i + ".obj", mesh.uvMappedMesh, mesh.uvMappedMesh.vertices, mesh.uvMappedMesh.normals, mesh.materials);
             }
         }
+
+        private static List< string > EMPTY_CHOICES = new List< string >();
     }
 
-    private static List< string > EMPTY_CHOICES = new List< string >();
 }
