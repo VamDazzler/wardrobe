@@ -74,6 +74,7 @@ namespace chokaphi_VamDazz
                 // Create the texture selector
                 textures = new JSONStorableStringChooser( "texture", EMPTY_CHOICES, null, "Texture" );
                 UIDynamicPopup textureSelector = CreateScrollablePopup( textures );
+                // TODO: Add some width to the dropdown.
 
                 // Create the slot in which all changed textures are stored.
                 replacements = new StorableReplacements();
@@ -198,6 +199,7 @@ namespace chokaphi_VamDazz
                 myClothes = null;
                 List< string > clothings = GameObject
                     .FindObjectsOfType< DAZClothingItem >()
+                    .Where( dci => dci.containingAtom == myPerson )
                     .Select( dci => dci.name )
                     .ToList();
                 clothings.Insert( 0, "REFRESH" );
@@ -214,6 +216,7 @@ namespace chokaphi_VamDazz
             else
             {
                 myClothes = FindObjectsOfType< DAZClothingItem >()
+                    .Where( dci => dci.containingAtom == myPerson )
                     .Where( dci => dci.name == clothingName )
                     .First();
 
