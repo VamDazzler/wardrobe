@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using UnityEngine;
 
 /**
@@ -28,8 +27,7 @@ namespace chokaphi_VamDazz
         Atom myPerson;
         JSONStorableStringChooser clothingItems, skinWraps, materials, textures;
         UIDynamicButton applyButton, dumpButton;
-        JSONStorableBool asDiffuse, asCutout, asBump, asGloss, asNormal;
-        UIDynamicToggle asDiffuseButton, asCutoutButton, asBumpButton, asGlossButton, asNormalButton;
+        List< ShaderRef > supportedShaderProperties;
         StorableReplacements replacements;
 
         // Indicate whether loading from the JSON has completed.
@@ -81,19 +79,12 @@ namespace chokaphi_VamDazz
                 RegisterString( replacements );
 
                 // Create the import options
-                asDiffuse = new JSONStorableBool( "Diffuse texture", true );
-                asCutout  = new JSONStorableBool( "Cutout", true );
-                asBump    = new JSONStorableBool( "Bump map", false );
-                asGloss   = new JSONStorableBool( "Glossy", false );
-                asNormal  = new JSONStorableBool( "Normal map", false );
-                asDiffuseButton = CreateToggle( asDiffuse );
-                asCutoutButton  = CreateToggle( asCutout );
-                asBumpButton    = CreateToggle( asBump );
-                asGlossButton   = CreateToggle( asGloss );
-                asNormalButton  = CreateToggle( asNormal );
-
-                // TODO: Currently disabled:
-                asNormalButton.toggle.interactable = false;
+                supportedShaderProperties = new List< ShaderRef >();
+                supportedShaderProperties.Add( new ShaderRef( this, "Diffuse texture", PROP_DIFFUSE, true ) );
+                supportedShaderProperties.Add( new ShaderRef( this, "Cutout", PROP_CUTOUT, true ) );
+                supportedShaderProperties.Add( new ShaderRef( this, "Specular map", "_SpecTex", false ) );
+                supportedShaderProperties.Add( new ShaderRef( this, "Glossy", PROP_GLOSS, false ) );
+                supportedShaderProperties.Add( new ShaderRef( this, "Normal map", PROP_NORMAL, false ) );
 
                 // Action to perform replacement
                 applyButton = CreateButton( "Apply" );
@@ -207,6 +198,9 @@ namespace chokaphi_VamDazz
 
                 // No clothing selected, disable dumping OBJs.
                 dumpButton.button.interactable = false;
+
+                // Clear any masking of texture slots
+                supportedShaderProperties.ForEach( ssp => ssp.ClearMask() );
             }
             else if( clothingName == "REFRESH" )
             {
@@ -235,6 +229,16 @@ namespace chokaphi_VamDazz
 
                 // Enable the button to dump the OBJs with UVs intact.
                 dumpButton.button.interactable = true;
+                /* Unfortunately, these give the parameters controllable in the UI already * /
+                Array.ForEach( myClothes.GetComponentsInChildren< DAZSkinWrapMaterialOptions >(),
+                    a => { 
+                        SuperController.LogMessage( "Examining skin wrap: " + a.name );
+                        string[] slots = { 
+                            a.param1Name, a.param2Name, a.param3Name, a.param4Name, a.param5Name,
+                            a.param6Name, a.param7Name, a.param8Name, a.param9Name, a.param10Name };
+                        Array.ForEach( slots, sn => SuperController.LogMessage( $"  Param Name: {sn}" ) );
+                    } );
+                // */
             }
         }
 
@@ -257,6 +261,51 @@ namespace chokaphi_VamDazz
                     .Select( mat => mat.name )
                     .ToList();
 
+                /* TODO: Still trying to find more shader properties names * /
+                int maintex = Shader.PropertyToID( PROP_DIFFUSE );
+                int bumptex = Shader.PropertyToID( PROP_BUMP );
+                int cutttex = Shader.PropertyToID( PROP_CUTOUT );
+                int glostex = Shader.PropertyToID( PROP_GLOSS );
+                int test    = Shader.PropertyToID( "_SpecTex" );
+
+                Array.ForEach( mySkin.GPUmaterials, m =>
+                {
+                    SuperController.LogMessage( $"Querying material '{m.name}'" );
+                    for( int i = 0; i < 1000; ++i )
+                    {
+                        try
+                        {
+                            Texture t = m.GetTexture( i );
+                            if( t != null )
+                            {
+                                try
+                                {
+                                    string actual;
+                                    if     ( i == maintex ) actual = PROP_DIFFUSE;
+                                    else if( i == bumptex ) actual = PROP_BUMP;
+                                    else if( i == cutttex ) actual = PROP_CUTOUT;
+                                    else if( i == glostex ) actual = PROP_GLOSS;
+                                    else if( i == test    ) actual = "<test>";
+                                    else                    actual = "<unknown>";
+
+                                    SuperController.LogMessage( $"  Texture #{i} is {actual}" );
+                                    Array.ForEach( m.shaderKeywords, kw => 
+                                        SuperController.LogMessage( $"    keyword: {kw}" ) );
+                                }
+                                catch( Exception ex )
+                                {
+                                    SuperController.LogMessage( $"  Could not cast it:) {ex}" );
+                                }
+                            }
+                        }
+                        catch
+                        { 
+                            // not a texture
+                        }
+                    }
+                });
+                // */
+
                 materials.choices = materialNames;
 
                 if( materialNames.Count == 1 )
@@ -264,6 +313,7 @@ namespace chokaphi_VamDazz
                     // Pre-select the single material.
                     materials.val = materialNames.ElementAt( 0 );
                 }
+
             }
         }
 
@@ -294,6 +344,8 @@ namespace chokaphi_VamDazz
                     textures.val = textureReferences.ElementAt( 0 ).Abbreviation;
                 }
 
+                // Now mask the available texture slots.
+                supportedShaderProperties.ForEach( ssp => ssp.MaskMaterial( myMaterial ) );
             }
         }
 
@@ -318,15 +370,10 @@ namespace chokaphi_VamDazz
         private void ApplyTexture()
         {
             // Collect the shader textures to which we apply
-            List< string > texmap = new List< string >();
-            if( asDiffuse.val )
-                texmap.Add( PROP_DIFFUSE );
-            if( asCutout.val )
-                texmap.Add( PROP_CUTOUT );
-            if( asBump.val )
-                texmap.Add( PROP_BUMP );
-            if( asGloss.val )
-                texmap.Add( PROP_GLOSS );
+            List< string > texmap = supportedShaderProperties
+                .Where( ssp => ssp.val )
+                .Select( ssp => ssp.propName )
+                .ToList();
 
             // Let the user know they need to replace *something*
             if( texmap.Count == 0 )
@@ -643,11 +690,58 @@ namespace chokaphi_VamDazz
             }
         }
 
+        private class ShaderRef : JSONStorableBool
+        {
+            public readonly string propName;
+            public UIDynamicToggle ui;
+
+            private bool masked;
+            private bool wasEnabled;
+
+            public ShaderRef( MVRScript parent, string displayName, string propName, bool startingValue )
+                : base( displayName, startingValue )
+            {
+                this.propName = propName;
+                this.wasEnabled = startingValue;
+                ui = parent.CreateToggle( this, false );
+            }
+
+            public void MaskMaterial( Material material )
+            {
+                if( material.HasProperty( propName ) )
+                { 
+                    ClearMask();
+                }
+                else
+                {
+
+                    // Store our current value (if we're not already masked)
+                    if( ! masked )
+                        wasEnabled = val;
+
+                    // Disable and uncheck ourselves.
+                    ui.toggle.interactable = false;
+                    val = false;
+                    masked = true;
+                }
+            }
+
+            public void ClearMask()
+            {
+                if( masked ) 
+                    val = wasEnabled;
+
+                ui.toggle.interactable = true;
+                masked = false;
+            }
+        }
+
         private static List< string > EMPTY_CHOICES = new List< string >();
         private static readonly string PROP_DIFFUSE = "_MainTex";
         private static readonly string PROP_CUTOUT  = "_AlphaTex";
-        private static readonly string PROP_BUMP    = "_BumpMap";
+        private static readonly string PROP_NORMAL  = "_BumpMap";
         private static readonly string PROP_GLOSS   = "_GlossTex";
+        private static readonly string PROP_SPEC    = "_SpecTex";
     }
 
 }
