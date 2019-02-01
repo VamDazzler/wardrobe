@@ -47,7 +47,7 @@ namespace chokaphi_VamDazz
             try
             {
                 disableUpdate = true;
-                pluginLabelJSON.val = "Wardrobe (by VamDazzler and chokaphi)";
+                pluginLabelJSON.val = "Wardrobe v1.0 (by VamDazzler)";
 
                 // Obtain our person
                 myPerson = containingAtom;
@@ -81,10 +81,10 @@ namespace chokaphi_VamDazz
                 // Create the import options
                 supportedShaderProperties = new List< ShaderRef >();
                 supportedShaderProperties.Add( new ShaderRef( this, "Diffuse texture", PROP_DIFFUSE, true ) );
-                supportedShaderProperties.Add( new ShaderRef( this, "Cutout", PROP_CUTOUT, true ) );
+                supportedShaderProperties.Add( new ShaderRef( this, "Alpha", PROP_CUTOUT, true ) );
+                supportedShaderProperties.Add( new ShaderRef( this, "Normal map", PROP_NORMAL, false ) );
                 supportedShaderProperties.Add( new ShaderRef( this, "Specular map", "_SpecTex", false ) );
                 supportedShaderProperties.Add( new ShaderRef( this, "Glossy", PROP_GLOSS, false ) );
-                supportedShaderProperties.Add( new ShaderRef( this, "Normal map", PROP_NORMAL, false ) );
 
                 // Action to perform replacement
                 applyButton = CreateButton( "Apply" );
@@ -650,6 +650,7 @@ namespace chokaphi_VamDazz
             public readonly bool local;
             public readonly string reference;
             public readonly string filename;
+            
             public string Abbreviation
             {
                 get {

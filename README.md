@@ -1,12 +1,13 @@
 Wardrobe: Change textures on VirtaMate clothes
 ==============================================
 
-### Installation
+Installation
+------------
 
 - Put Wardrobe.cs into `<vam>/Saves/Scripts`
 - Attach the script to Person atoms.
 
-To replace the texture on clothes.
+### Replacing textures on clothes
 
 - Put clothing textures into either scene or global texture directory
   for the particular piece of clothing
@@ -14,8 +15,6 @@ To replace the texture on clothes.
 - Select the clothing piece, skin, and material to be replaced
 - Set the type of texture(s) to replace on the material
 - Apply.
-
-
 
 Where to put textures
 ---------------------
