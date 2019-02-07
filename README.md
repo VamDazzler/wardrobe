@@ -26,13 +26,14 @@ Wardrobe will log a message with the proper subdirectory and file
 names if it finds none, so if you don't know the subdirectory, just
 ask Wardrobe.
 
-e.g. A texture for the Heatwave Shirt can go into either:
+Here are some examples of where to store a texture for the heatwave
+shirt:
 
-    <vam>/Textures/HeatwaveShirt/HeatwaveShirt/Shirt-1.png
-
-or
-
-    <scene's dir>/Textures/HeatwaveShirt/HeatwaveShirt/Shirt-1.png
+    <vam>/Textures/Wardrobe/HeatwaveShirt/Shirt-1-special.png
+    <vam>/Textures/Wardrobe/HeatwaveShirt/default.jpg
+    <vam>/Textures/HeatwaveShirt/Shirt-1.tiff
+    <scene>/Textures/HeatwaveShirt/Shirt-1.png
+    <scene>/Textures/Wardrobe/HeatwaveShirt/default-jessie.jpg
 
 Flexible texture names
 ----------------------
@@ -47,6 +48,15 @@ Heatwave Shirt:
     <vam>/Textures/HeatwaveShirt/HeatwaveShirt/Shirt-1-everyday.jpg
     <vam>/Textures/HeatwaveShirt/HeatwaveShirt/Shirt-1-special.png
 
+Shared textures
+---------------
+
+Most of the clothes available in Virtamate have multiple materials
+with the same UV map (they can share a texture space without
+overlap). Therefore you can use `default` as the material name prefix
+and it will be visible no matter which material portion of the
+clothing item you select.
+
 Obtaining geometry with UV maps
 -------------------------------
 
@@ -59,10 +69,6 @@ Gotchas, bugs, and future
 
 - Not checking to make sure texture to be loaded is actually an image.
 
-- Definitely want more shader property names (specifically specular
-  and normal)
 - Maybe want to have the texture selection toggles be more mutually
   exclusive.
-- Maybe want to have the texture selection toggles depend on whether
-  the shader actually has the property in question.
 - Mass load suffix-style?
