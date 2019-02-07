@@ -211,6 +211,8 @@ namespace chokaphi_VamDazz
                 // Make them available in the selector
                 materials.choices = materialNames;
 
+                dumpButton.button.interactable = true;
+
                 if( materialNames.Count == 1 )
                 {
                     // Pre-select the single material.
@@ -405,26 +407,11 @@ namespace chokaphi_VamDazz
 
         public void DumpButtonCallback()
         {
-            if (myClothes == null)
-            {
-                SuperController.LogMessage("Select a clothing item first");
-                return; // shouldn't get here
-            }
-
-            DAZSkinWrap[] skinWraps = myClothes.GetComponentsInChildren<DAZSkinWrap>(true);
-            if (skinWraps==null)
-            {
-                SuperController.LogMessage("No Skin Wraps found");
-                return;
-            }
-
             OBJExporter exporter = new OBJExporter();
-            for (int i=0;i<skinWraps.Length;i++)
-            {
-                DAZMesh mesh = skinWraps[i].dazMesh;
-                // use the mesh and the built in OBJExporter
-                exporter.Export(myClothes.name + i + ".obj", mesh.uvMappedMesh, mesh.uvMappedMesh.vertices, mesh.uvMappedMesh.normals, mesh.materials);
-            }
+            DAZMesh mesh = myClothes.GetComponentsInChildren< DAZSkinWrap >()
+                .First().dazMesh;
+
+            exporter.Export( myClothes.name + ".obj", mesh.uvMappedMesh, mesh.uvMappedMesh.vertices, mesh.uvMappedMesh.normals, mesh.materials );
         }
 
         private class StorableReplacements : JSONStorableString
