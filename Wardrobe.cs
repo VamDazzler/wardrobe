@@ -399,7 +399,7 @@ namespace chokaphi_VamDazz
             if( textures.Count() == 0 )
             {
                 SuperController.LogMessage( "Could not find a replacement texture at either the scene or global Vam directory" );
-                SuperController.LogMessage( $"To replace this material, place a texture file named '{withbasename}.[png|jpg]'in 'Textures/Wardrobe/{indir}'" );
+                SuperController.LogMessage( $"To replace this material, place a texture file named '{withbasename}.[png|jpg]' or `default.[png|jpg] in 'Textures/Wardrobe/{indir}'" );
             }
 
             return textures;
