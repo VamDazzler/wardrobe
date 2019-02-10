@@ -78,7 +78,7 @@ namespace chokaphi_VamDazz
                 supportedShaderProperties.Add( new ShaderRefControl( this, "Diffuse texture", PROP_DIFFUSE, true ) );
                 supportedShaderProperties.Add( new ShaderRefControl( this, "Alpha", PROP_CUTOUT, true ) );
                 supportedShaderProperties.Add( new ShaderRefControl( this, "Normal map", PROP_NORMAL, false ) );
-                supportedShaderProperties.Add( new ShaderRefControl( this, "Specular map", "_SpecTex", false ) );
+                supportedShaderProperties.Add( new ShaderRefControl( this, "Specular map", PROP_SPEC, false ) );
                 supportedShaderProperties.Add( new ShaderRefControl( this, "Glossy", PROP_GLOSS, false ) );
 
                 // Action to perform replacement
@@ -337,7 +337,7 @@ namespace chokaphi_VamDazz
             }
 
             // Now clear the UI
-            clothingItems.val = null;
+            textures.val = null;
         }
 
         private void LoadSaved( StorableSlot slot, TextureReference full )
