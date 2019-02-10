@@ -27,7 +27,7 @@ namespace chokaphi_VamDazz
         Atom myPerson;
         JSONStorableStringChooser clothingItems, materials, textures;
         UIDynamicButton applyButton, dumpButton;
-        List< ShaderRef > supportedShaderProperties;
+        List< ShaderRefControl > supportedShaderProperties;
         StorableReplacements replacements;
 
         // Indicate whether loading from the JSON has completed.
@@ -74,12 +74,12 @@ namespace chokaphi_VamDazz
                 RegisterString( replacements );
 
                 // Create the import options
-                supportedShaderProperties = new List< ShaderRef >();
-                supportedShaderProperties.Add( new ShaderRef( this, "Diffuse texture", PROP_DIFFUSE, true ) );
-                supportedShaderProperties.Add( new ShaderRef( this, "Alpha", PROP_CUTOUT, true ) );
-                supportedShaderProperties.Add( new ShaderRef( this, "Normal map", PROP_NORMAL, false ) );
-                supportedShaderProperties.Add( new ShaderRef( this, "Specular map", "_SpecTex", false ) );
-                supportedShaderProperties.Add( new ShaderRef( this, "Glossy", PROP_GLOSS, false ) );
+                supportedShaderProperties = new List< ShaderRefControl >();
+                supportedShaderProperties.Add( new ShaderRefControl( this, "Diffuse texture", PROP_DIFFUSE, true ) );
+                supportedShaderProperties.Add( new ShaderRefControl( this, "Alpha", PROP_CUTOUT, true ) );
+                supportedShaderProperties.Add( new ShaderRefControl( this, "Normal map", PROP_NORMAL, false ) );
+                supportedShaderProperties.Add( new ShaderRefControl( this, "Specular map", "_SpecTex", false ) );
+                supportedShaderProperties.Add( new ShaderRefControl( this, "Glossy", PROP_GLOSS, false ) );
 
                 // Action to perform replacement
                 applyButton = CreateButton( "Apply" );
@@ -640,7 +640,7 @@ namespace chokaphi_VamDazz
             }
         }
 
-        private class ShaderRef : JSONStorableBool
+        private class ShaderRefControl : JSONStorableBool
         {
             public readonly string propName;
             public UIDynamicToggle ui;
@@ -648,7 +648,7 @@ namespace chokaphi_VamDazz
             private bool masked;
             private bool wasEnabled;
 
-            public ShaderRef( MVRScript parent, string displayName, string propName, bool startingValue )
+            public ShaderRefControl( MVRScript parent, string displayName, string propName, bool startingValue )
                 : base( displayName, startingValue )
             {
                 this.propName = propName;
