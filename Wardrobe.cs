@@ -67,7 +67,9 @@ namespace chokaphi_VamDazz
                 // Create the texture selector
                 textures = new JSONStorableStringChooser( "texture", EMPTY_CHOICES, null, "Texture" );
                 UIDynamicPopup textureSelector = CreateScrollablePopup( textures );
-                // TODO: Add some width to the dropdown.
+                RectTransform panel = textureSelector.popup.popupPanel;
+                panel.SetSizeWithCurrentAnchors( RectTransform.Axis.Horizontal, 400f );
+                panel.pivot = new Vector2( 0.35f, 1.0f );
 
                 // Create the slot in which all changed textures are stored.
                 replacements = new StorableReplacements();
