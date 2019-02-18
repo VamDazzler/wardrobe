@@ -46,7 +46,7 @@ namespace chokaphi_VamDazz
             try
             {
                 disableUpdate = true;
-                pluginLabelJSON.val = "Wardrobe v1.1.0 (by VamDazzler)";
+                pluginLabelJSON.val = "Wardrobe v1.1.1 (by VamDazzler)";
 
                 // Obtain our person
                 myPerson = containingAtom;
@@ -358,6 +358,7 @@ namespace chokaphi_VamDazz
                     throw new Exception( $"Could not get material '{components.ElementAt( 2 )}'" );
 
                 SelectTexture( full );
+                supportedShaderProperties.ForEach( srpc => srpc.val = (srpc.propName == slot.Property) );
                 ApplyTexture();
             }
         }
