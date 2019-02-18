@@ -362,6 +362,9 @@ namespace chokaphi_VamDazz
                 SelectTexture( full );
                 supportedShaderProperties.ForEach( srpc => srpc.val = (srpc.propName == slot.Property) );
                 ApplyTexture();
+
+                // Reset to known starting point.
+                supportedShaderProperties.ForEach( srpc => srpc.val = (srpc.propName == PROP_DIFFUSE || srpc.propName == PROP_CUTOUT) );
             }
         }
 
