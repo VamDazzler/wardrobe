@@ -481,7 +481,7 @@ namespace chokaphi_VamDazz
                 }
             }
             
-            public override bool StoreJSON( JSONClass jc, bool includePhysical = true, bool includeAppearance = true )
+            public override bool StoreJSON( JSONClass jc, bool includePhysical = true, bool includeAppearance = true, bool forceStore = false )
             {
                 var replacements = new JSONArray();
                 foreach( var kvp in entries )
