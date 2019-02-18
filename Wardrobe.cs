@@ -373,8 +373,7 @@ namespace chokaphi_VamDazz
                 toList.AddRange( SuperController.singleton
                     .GetFilesAtPath( inDir )
                     .Select( fp => fp.Remove( 0, inDir.Length + 1 ) )
-                    .Select( fp => fp.ToLower() ) // NOTE: this is not posix
-                    .Where( fp => fp.StartsWith( basename ) || fp.StartsWith( "default" ) )
+                    .Where( fp => fp.ToLower().StartsWith( basename ) || fp.StartsWith( "default" ) )
                     .Select( fp => TextureReference.fromReference( $"{prefix}/{fp}" ) ) );
             }
             catch
