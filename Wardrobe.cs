@@ -570,7 +570,7 @@ namespace chokaphi_VamDazz
             try
             { 
                 return 0 < SuperController.singleton.GetFilesAtPath( directory )
-                    .Where( df => df.Split( '/', '\\' ).Last() == filename )
+                    .Where( df => df.Split( '/', '\\' ).Last().ToLower() == filename.ToLower() )
                     .Count();
             }
             catch
