@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using VamDazzler;
 
 /**
  * Cloth texture replacer.
@@ -40,6 +41,8 @@ namespace chokaphi_VamDazz
         private string                   myMaterialName;
         private List< TextureReference > textureReferences;
         private TextureReference         textureFile;
+
+        private VDTextureLoader textureLoader = new VDTextureLoader();
 
         public override void Init()
         {
@@ -307,39 +310,23 @@ namespace chokaphi_VamDazz
             }
 
             // Load the image and apply it to the material.
-            var clothes = myClothes;
-            var mat = myMaterialName; // scope the closure locally.
-            var img = new ImageLoaderThreaded.QueuedImage();
-            img.imgPath = textureFile.filename;
-            img.callback = qimg => SetTexture( texmap, clothes, mat, qimg );
-            ImageLoaderThreaded.singleton.QueueImage( img );
+            foreach( string prop in texmap )
+            {
+                var clothes = myClothes;
+                var materialName = myMaterialName; // scope the closure locally.
+
+                textureLoader.withTexture( textureFile.filename, tex =>
+                    clothes.GetComponentsInChildren< DAZSkinWrap >()
+                        .SelectMany( wrap => wrap.GPUmaterials )
+                        .Where( mat => mat.name == materialName ).ToList()
+                        .ForEach( mat => mat.SetTexture( prop, tex ) ) );
+            }
 
             // Store this into the scene
             if( ! disableUpdate )
             {
                 replacements.setTextureReplacement( $"{myClothes.name}/{myMaterialName}", textureFile, texmap );
             }
-        }
-
-        private void SetTexture( List< string > texmap, DAZClothingItem clothes, string materialName, ImageLoaderThreaded.QueuedImage texture )
-        {
-            if( texture.hadError )
-            {
-                SuperController.LogError( $"Error loading texture: {texture.errorText}" );
-            }
-            else
-            {
-                // Apply the loaded texture to all the requested texture slots
-                // on all the skin wraps (clothing states)
-                clothes.GetComponentsInChildren< DAZSkinWrap >()
-                    .SelectMany( wrap => wrap.GPUmaterials )
-                    .Where( mat => mat.name == materialName ).ToList()
-                    .ForEach( mat => texmap
-                       .ForEach( name => mat.SetTexture( name, texture.tex ) ) );
-            }
-
-            // Now clear the UI
-            textures.val = null;
         }
 
         private void LoadSaved( StorableSlot slot, TextureReference full )
