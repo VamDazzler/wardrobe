@@ -41,7 +41,7 @@ namespace VamDazzler
             try
             {
                 disableUpdate = true;
-                pluginLabelJSON.val = "Wardrobe v1.2.0 (by VamDazzler)";
+                pluginLabelJSON.val = "Wardrobe v2.0.0 (by VamDazzler)";
 
                 // Obtain our person
                 myPerson = containingAtom;
