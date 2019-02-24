@@ -278,7 +278,6 @@ namespace VamDazzler
 
         private void ApplyOutfit( string outfitName, string forClothing )
         {
-            SuperController.LogMessage( $"Trying to apply {outfitName} to {forClothing}" );
             string sceneDirectory = $"{SuperController.singleton.currentLoadDir}/Textures/Wardrobe/{forClothing}";
             string globalDirectory = $"{SuperController.singleton.savesDir}/../Textures/Wardrobe/{forClothing}";
 
@@ -288,7 +287,6 @@ namespace VamDazzler
                 .DefaultIfEmpty( (string) null )
                 .FirstOrDefault();
 
-            SuperController.LogMessage( $"Have settled on {outfitDirectory} as the texture source" );
             if( outfitDirectory == null )
             {
                 SuperController.LogError( $"Outfit needs textures in '<vamOrScene>/Textures/Wardrobe/{forClothing}/{outfitName}'" );
@@ -325,11 +323,6 @@ namespace VamDazzler
         {
             string textureFilename = texNames( mat, property )
                 .SelectMany( tn => SuperController.singleton.GetFilesAtPath( outfitDirectory, $"{tn}.*" ) )
-                .Select( tf =>
-                {
-                    SuperController.LogMessage( $"found outfit texture: {tf}" );
-                    return tf;
-                } )
                 .DefaultIfEmpty( (string) null )
                 .FirstOrDefault();
 
