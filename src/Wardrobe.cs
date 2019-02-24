@@ -23,6 +23,7 @@ namespace VamDazzler
         JSONStorableString materialList;
         UIDynamicButton applyButton, dumpButton;
         StorableReplacements storedOutfits;
+        Dictionary< KeyValuePair< Material, string >, Texture > originalTextures = new Dictionary<KeyValuePair<Material, string>, Texture>();
 
         // Indicate whether loading from the JSON has completed.
         // Initial load of textures must wait until the clothes have all been loaded,
@@ -319,8 +320,20 @@ namespace VamDazzler
                 .DefaultIfEmpty( (string) null )
                 .FirstOrDefault();
 
+            var key = new KeyValuePair< Material, string >( mat, property );
             if( textureFilename != null )
+            {
+                // Save the original texture if we haven't already.
+                if( ! originalTextures.ContainsKey( key ) )
+                    originalTextures[ key ] = mat.GetTexture( property );
+
                 textureLoader.withTexture( textureFilename, tex => mat.SetTexture( property, tex ) );
+            }
+            else
+            {
+                if( originalTextures.ContainsKey( key ) )
+                    mat.SetTexture( property, originalTextures[ key ] );
+            }
         }
         
         private static IEnumerable< string > diffuseTexNames( Material mat )
