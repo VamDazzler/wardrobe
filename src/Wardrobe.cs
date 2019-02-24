@@ -153,6 +153,7 @@ namespace VamDazzler
             // Collect outfit directories from both the scene and global levels.
             return safeGetDirectories( localDirectory ).Union( safeGetDirectories( globalDirectory ) )
                 .Select( getBaseName )
+                .Where( bn => bn.ToLower() != "psd" )
                 .Distinct( StringComparer.OrdinalIgnoreCase );
         }
         
