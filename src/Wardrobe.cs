@@ -11,11 +11,6 @@ using UnityEngine;
  *
  * Authors: VamDazzler
  * License: Creative Commons with Attribution (CC BY 3.0)
- *
- * Historical credits:
- * Jan 26, 2019 chokaphi: Proof of concept. Single clothing item, fixed file.
- * Jan 27, 2019 VamDazzler: Generalization, UI, and transparency fix.
- * Jan 28, 2019 VamSander: Added an export obj button.
  */
 namespace VamDazzler
 {
