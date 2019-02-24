@@ -4,58 +4,43 @@ Wardrobe: Change textures on VirtaMate clothes
 Installation
 ------------
 
-- Put Wardrobe.cs into `<vam>/Saves/Scripts`
-- Attach the script to Person atoms.
+- Put `Wardrobe.cslist` and the `src` directory somewhere in `<vam>/Saves/Scripts`
+- Attach the `Wardrobe.cslist` to Person atoms using the `Plugins` tab.
+- Make some outfits (or download from the excellent outfit library
+  maintained by Vince at https://mega.nz/#F!2eQUhAgI!E9R1yV1NY-qHEIuWxNwLkA)
+- Apply outfits to particular clothing pieces using the plugin's UI.
 
-### Replacing textures on clothes
+## Making an outfit
 
-- Put clothing textures into either scene or global texture directory
-  for the particular piece of clothing
-- Attach Wardrobe to the character and open the plugin menu.
-- Select the clothing piece, skin, and material to be replaced
-- Set the type of texture(s) to replace on the material
-- Apply.
+An outfit is a directory inside `<vam>/Textures/Wardrobe/ClothingItem`
+with textures for all, or part of the clothing item.
 
-Where to put textures
----------------------
+Every outfit can have a `default` texture set, and override specific
+parts (such as `Skirt-1` or `TopFront-1`) with different textures.
 
-Textures can be placed in either globbaly or relative to the scene
-file. The particular directory will depend on the clothing item.
+Any outfit named `PSD` will be ignored, this is a good place for
+creators to store template files.
 
-Wardrobe will log a message with the proper subdirectory and file
-names if it finds none, so if you don't know the subdirectory, just
-ask Wardrobe.
+## Naming textures
 
-Here are some examples of where to store a texture for the heatwave
-shirt:
+Texture names are three parts: `<part><type>.<ext>`
 
-    <vam>/Textures/Wardrobe/HeatwaveShirt/Shirt-1-special.png
-    <vam>/Textures/Wardrobe/HeatwaveShirt/default.jpg
-    <vam>/Textures/HeatwaveShirt/Shirt-1.tiff
-    <scene>/Textures/HeatwaveShirt/Shirt-1.png
-    <scene>/Textures/Wardrobe/HeatwaveShirt/default-jessie.jpg
+- `part` is the part of the clothing to be retextured, or `default`
+- `type` is the type of material to which to apply the texture (optional)
+- `ext` can be any unity-supported image type (png, jpg, tif, etc)
 
-Flexible texture names
-----------------------
+The `part` for each clothing item can differ, select the clothes in
+the plugin to see a list of them.
 
-Wardrobe only checks that a filename is prefixed with the material
-name, so you can have several textures for the same piece of clothing
-with different names or just different extensions.
+The types are based on the way the texture should be used
 
-e.g. You have an everyday texture and a special texture for the
-Heatwave Shirt:
-
-    <vam>/Textures/HeatwaveShirt/HeatwaveShirt/Shirt-1-everyday.jpg
-    <vam>/Textures/HeatwaveShirt/HeatwaveShirt/Shirt-1-special.png
-
-Shared textures
----------------
-
-Most of the clothes available in Virtamate have multiple materials
-with the same UV map (they can share a texture space without
-overlap). Therefore you can use `default` as the material name prefix
-and it will be visible no matter which material portion of the
-clothing item you select.
+- `D`: Diffuse (color)
+- `A`: Alpha (transparency)
+- `N`: Normal
+- `S`: Specular
+- `G`: Gloss
+- none: If the texture type is omitted, it will be both diffuse and
+        alpha (using the alpha channel of the texture image)
 
 Obtaining geometry with UV maps
 -------------------------------
@@ -69,6 +54,10 @@ Gotchas, bugs, and future
 
 - Not checking to make sure texture to be loaded is actually an image.
 
-- Maybe want to have the texture selection toggles be more mutually
-  exclusive.
-- Mass load suffix-style?
+Credits
+-------
+
+- MeshedVR for creating VirtaMate
+- chokaphi for building the code for the first texture replacement
+- VamSander for creating OBJ export functionality
+- Vince for building a massive texture collection and making it open.
