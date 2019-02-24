@@ -58,6 +58,7 @@ namespace VamDazzler
                 // Create the outfit selection drop-down
                 outfitNames = new JSONStorableStringChooser( "outfit", EMPTY_CHOICES, null, "Outfit" );
                 UIDynamicPopup outfitSelector = CreateScrollablePopup( outfitNames );
+                outfitSelector.popupPanelHeight = 900f;
                 RectTransform panel = outfitSelector.popup.popupPanel;
                 panel.SetSizeWithCurrentAnchors( RectTransform.Axis.Horizontal, 400f );
                 panel.pivot = new Vector2( 0.35f, 1.0f );
