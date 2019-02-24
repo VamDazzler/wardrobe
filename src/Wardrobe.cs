@@ -19,7 +19,6 @@ namespace VamDazzler
         private bool disableUpdate;
 
         //person script is attatched too
-        Atom myPerson;
         JSONStorableStringChooser clothingItems, outfitNames;
         JSONStorableString materialList;
         UIDynamicButton applyButton, dumpButton;
@@ -40,8 +39,7 @@ namespace VamDazzler
                 pluginLabelJSON.val = "Wardrobe v2.0.0 (by VamDazzler)";
 
                 // Obtain our person
-                myPerson = containingAtom;
-                if( myPerson == null )
+                if( containingAtom == null )
                 {
                     SuperController.LogError("Please add this plugin to a PERSON atom.");
                     throw new Exception( "Halting Wardrobe due to de-Atom-ization" );
@@ -169,7 +167,7 @@ namespace VamDazzler
             {
                 List< string > clothings = GameObject
                     .FindObjectsOfType< DAZClothingItem >()
-                    .Where( dci => dci.containingAtom == myPerson )
+                    .Where( dci => dci.containingAtom == containingAtom )
                     .Select( dci => dci.name )
                     .ToList();
                 clothings.Insert( 0, "REFRESH" );
@@ -291,7 +289,7 @@ namespace VamDazzler
             // Get the clothing item materials.
             DAZClothingItem clothes = GameObject
                 .FindObjectsOfType< DAZClothingItem >()
-                .Where( dci => dci.containingAtom == myPerson )
+                .Where( dci => dci.containingAtom == containingAtom )
                 .Where( dci => dci.name == forClothing )
                 .FirstOrDefault();
             if( clothes == null )
