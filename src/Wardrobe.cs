@@ -3,22 +3,21 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using VamDazzler;
 
 /**
- * Cloth texture replacer.
+ * Outfit manager.
  *
- * Replace
+ * Apply outfits to clothing pieces.
  *
- * Authors: chokaphi and VamDazzler
+ * Authors: VamDazzler
  * License: Creative Commons with Attribution (CC BY 3.0)
  *
- * History:
+ * Historical credits:
  * Jan 26, 2019 chokaphi: Proof of concept. Single clothing item, fixed file.
  * Jan 27, 2019 VamDazzler: Generalization, UI, and transparency fix.
  * Jan 28, 2019 VamSander: Added an export obj button.
  */
-namespace chokaphi_VamDazz
+namespace VamDazzler
 {
     public class Wardrobe : MVRScript
     {
@@ -26,21 +25,14 @@ namespace chokaphi_VamDazz
 
         //person script is attatched too
         Atom myPerson;
-        JSONStorableStringChooser clothingItems, materials, textures;
+        JSONStorableStringChooser clothingItems, outfitNames;
         UIDynamicButton applyButton, dumpButton;
-        List< ShaderRefControl > supportedShaderProperties;
-        StorableReplacements replacements;
+        StorableReplacements storedOutfits;
 
         // Indicate whether loading from the JSON has completed.
         // Initial load of textures must wait until the clothes have all been loaded,
         // which is not the case by the time of `Start` on a fresh start of VaM.
         private bool needsLoad;
-
-        // Runtime use variables
-        private DAZClothingItem          myClothes;
-        private string                   myMaterialName;
-        private List< TextureReference > textureReferences;
-        private TextureReference         textureFile;
 
         private VDTextureLoader textureLoader = new VDTextureLoader();
 
@@ -49,7 +41,7 @@ namespace chokaphi_VamDazz
             try
             {
                 disableUpdate = true;
-                pluginLabelJSON.val = "Wardrobe v1.1.2 (by VamDazzler)";
+                pluginLabelJSON.val = "Wardrobe v1.2.0 (by VamDazzler)";
 
                 // Obtain our person
                 myPerson = containingAtom;
@@ -63,32 +55,20 @@ namespace chokaphi_VamDazz
                 clothingItems = new JSONStorableStringChooser( "clothing", EMPTY_CHOICES, null, "Clothing Item" );
                 UIDynamicPopup clothingSelector = CreateScrollablePopup( clothingItems );
 
-                // Create the materials drop-down
-                materials = new JSONStorableStringChooser( "material", EMPTY_CHOICES, null, "Material" );
-                UIDynamicPopup materialSelector = CreateScrollablePopup( materials );
-
-                // Create the texture selector
-                textures = new JSONStorableStringChooser( "texture", EMPTY_CHOICES, null, "Texture" );
-                UIDynamicPopup textureSelector = CreateScrollablePopup( textures );
-                RectTransform panel = textureSelector.popup.popupPanel;
+                // Create the outfit selection drop-down
+                outfitNames = new JSONStorableStringChooser( "outfit", EMPTY_CHOICES, null, "Outfit" );
+                UIDynamicPopup outfitSelector = CreateScrollablePopup( outfitNames );
+                RectTransform panel = outfitSelector.popup.popupPanel;
                 panel.SetSizeWithCurrentAnchors( RectTransform.Axis.Horizontal, 400f );
                 panel.pivot = new Vector2( 0.35f, 1.0f );
 
                 // Create the slot in which all changed textures are stored.
-                replacements = new StorableReplacements();
-                RegisterString( replacements );
-
-                // Create the import options
-                supportedShaderProperties = new List< ShaderRefControl >();
-                supportedShaderProperties.Add( new ShaderRefControl( this, "Diffuse texture", PROP_DIFFUSE, true ) );
-                supportedShaderProperties.Add( new ShaderRefControl( this, "Alpha", PROP_CUTOUT, true ) );
-                supportedShaderProperties.Add( new ShaderRefControl( this, "Normal map", PROP_NORMAL, false ) );
-                supportedShaderProperties.Add( new ShaderRefControl( this, "Specular map", PROP_SPEC, false ) );
-                supportedShaderProperties.Add( new ShaderRefControl( this, "Glossy", PROP_GLOSS, false ) );
+                storedOutfits = new StorableReplacements();
+                RegisterString( storedOutfits );
 
                 // Action to perform replacement
                 applyButton = CreateButton( "Apply" );
-                applyButton.button.onClick.AddListener( ApplyTexture );
+                applyButton.button.onClick.AddListener( ApplyOutfitCallback );
                 
                 // Create a dump button
                 UIDynamic align = CreateSpacer( true );
@@ -113,19 +93,15 @@ namespace chokaphi_VamDazz
                 if( needsLoad && ! SuperController.singleton.isLoading )
                 {
                     // Load all the previously saved replacements
-                    foreach( var entry in replacements.All() )
+                    foreach( var entry in storedOutfits.All() )
                     {
                         try
                         {
-                            LoadSaved( entry.Key, entry.Value );
+                            ApplyOutfit( entry.Value, entry.Key );
                         }
                         catch( Exception ex )
                         {
-                            SuperController.LogError( $"Could not load saved texture for {entry.Key} {ex}" );
-                        }
-                        catch
-                        {
-                            SuperController.LogError( $"Could not load saved texture for {entry.Key} (unknown reason)" );
+                            SuperController.LogError( $"Could not load outfit '{entry.Value}' for {entry.Key}: {ex}" );
                         }
                     }
 
@@ -152,13 +128,12 @@ namespace chokaphi_VamDazz
             try
             {
                 // No point if we don't have a person.
-                if( myPerson == null )
+                if( containingAtom == null )
                     return;
 
                 // Now that loading is complete, set our UI callbacks
                 clothingItems.setCallbackFunction = this.SelectClothingItem;
-                materials.setCallbackFunction = this.SelectMaterial;
-                textures.setCallbackFunction = this.SelectTexture;
+                outfitNames.setCallbackFunction = this.SelectOutfit;
                 SelectClothingItem( null );
 
                 needsLoad = true;
@@ -170,12 +145,25 @@ namespace chokaphi_VamDazz
             }
         }
 
+        private IEnumerable< string > FindOutfits( string forClothing )
+        {
+            string localDirectory = $"{SuperController.singleton.currentLoadDir}/Textures/Wardrobe/{forClothing}";
+            string globalDirectory = $"{SuperController.singleton.savesDir}/../Textures/Wardrobe/{forClothing}";
+
+            // Collect outfit directories from both the scene and global levels.
+            return safeGetDirectories( localDirectory ).Union( safeGetDirectories( globalDirectory ) )
+                .Select( getBaseName )
+                .Distinct( StringComparer.OrdinalIgnoreCase );
+        }
+        
+        //
+        // UI action callbacks
+
         private void SelectClothingItem( string clothingName )
         {
-            SelectMaterial( null );
+            SelectOutfit( null );
             if( clothingName == null )
             {
-                myClothes = null;
                 List< string > clothings = GameObject
                     .FindObjectsOfType< DAZClothingItem >()
                     .Where( dci => dci.containingAtom == myPerson )
@@ -186,9 +174,6 @@ namespace chokaphi_VamDazz
 
                 // No clothing selected, disable dumping OBJs.
                 dumpButton.button.interactable = false;
-
-                // Clear any masking of texture slots
-                supportedShaderProperties.ForEach( ssp => ssp.ClearMask() );
             }
             else if( clothingName == "REFRESH" )
             {
@@ -197,232 +182,206 @@ namespace chokaphi_VamDazz
             }
             else
             {
-                myClothes = FindObjectsOfType< DAZClothingItem >()
-                    .Where( dci => dci.containingAtom == myPerson )
-                    .Where( dci => dci.name == clothingName )
-                    .First();
-
-                // Get the first example of a skin wrap
-                // (they all have the same geometry, just deformed differently)
-                DAZSkinWrap skinWrap = myClothes
-                    .GetComponentsInChildren< DAZSkinWrap >()
-                    .FirstOrDefault();
-
-                // Obtain the list of materials for the skinwrap
-                List< string > materialNames = skinWrap.GPUmaterials
-                    .Select( mat => mat.name )
-                    .ToList();
-
-                // Make them available in the selector
-                materials.choices = materialNames;
-
                 dumpButton.button.interactable = true;
+                List< string > outfits = FindOutfits( clothingName ).ToList();
+                outfitNames.choices = outfits;
 
-                if( materialNames.Count == 1 )
+                if( outfits.Count == 1 )
                 {
-                    // Pre-select the single material.
-                    materials.val = materialNames.ElementAt( 0 );
+                    // Pre-select the single outfit.
+                    outfitNames.val = outfits.ElementAt( 0 );
                 }
             }
         }
 
-        private void SelectMaterial( string byName )
+        private void SelectOutfit( string outfitName )
         {
-            SelectTexture( null as string );
-            if( byName == null )
+            if( outfitName == null )
             {
-                myMaterialName = null;
-                materials.choices = EMPTY_CHOICES;
-                materials.valNoCallback = null;
+                outfitNames.choices = EMPTY_CHOICES;
+                outfitNames.valNoCallback = null;
+                applyButton.button.interactable = false;
             }
             else
             {
-                // Get the material slot selected.
-                Material theMaterial = myClothes
-                    .GetComponentsInChildren< DAZSkinWrap >()
-                    .First().GPUmaterials
-                    .Where( mat => mat.name == byName )
-                    .First();
-                myMaterialName = byName;
-
-                // Now search for textures which can be applied to this clothing item.
-                string subdir = $"{myClothes.name}";
-                textureReferences = FindTextures( subdir, theMaterial.name );
-                textures.choices = textureReferences
-                    .Select( tr => tr.Abbreviation )
-                    .ToList();
-
-                if( textureReferences.Count == 1 )
-                {
-                    // Pre-select the single texture available
-                    textures.val = textureReferences.ElementAt( 0 ).Abbreviation;
-                }
-
-                // Now mask the available texture slots.
-                supportedShaderProperties.ForEach( ssp => ssp.MaskMaterial( theMaterial ) );
+                applyButton.button.interactable = true;
             }
-        }
-
-        private void SelectTexture( string byDisplayName )
-        {
-            if( byDisplayName == null )
-            {
-                textures.val = null;
-                applyButton.button.enabled = false;
-            }
-            else
-            {
-                TextureReference filename = textureReferences
-                    .Where( tr => tr.Abbreviation == byDisplayName )
-                    .First();
-
-                textureFile = filename;
-                applyButton.button.enabled = true;
-            }
-        }
-
-        private void SelectTexture( TextureReference byReference )
-        {
-            if( byReference == null )
-            { 
-                SelectTexture( null as string );
-            }
-            else
-            {
-                textureFile = byReference;
-                applyButton.button.enabled = true;
-            }
-        }
-
-        private void ApplyTexture()
-        {
-            // Collect the shader textures to which we apply
-            List< string > texmap = supportedShaderProperties
-                .Where( ssp => ssp.val )
-                .Select( ssp => ssp.propName )
-                .ToList();
-
-            // Let the user know they need to replace *something*
-            if( texmap.Count == 0 )
-            {
-                SuperController.LogMessage( "Select which texture(s) to replace before applying." );
-                return;
-            }
-
-            // Load the image and apply it to the material.
-            foreach( string prop in texmap )
-            {
-                var clothes = myClothes;
-                var materialName = myMaterialName; // scope the closure locally.
-
-                textureLoader.withTexture( textureFile.filename, tex =>
-                    clothes.GetComponentsInChildren< DAZSkinWrap >()
-                        .SelectMany( wrap => wrap.GPUmaterials )
-                        .Where( mat => mat.name == materialName ).ToList()
-                        .ForEach( mat => mat.SetTexture( prop, tex ) ) );
-            }
-
-            // Store this into the scene
-            if( ! disableUpdate )
-            {
-                replacements.setTextureReplacement( $"{myClothes.name}/{myMaterialName}", textureFile, texmap );
-            }
-        }
-
-        private void LoadSaved( StorableSlot slot, TextureReference full )
-        {
-            string[] components = slot.Material.Split( '/' );
-            if( components.Length != 2 )
-            {
-                SuperController.LogError( $"Found badly formatted replacement material: {slot.Material}" );
-            }
-            else
-            {
-                SelectClothingItem( components.ElementAt( 0 ) );
-                if( myClothes == null )
-                    throw new Exception( $"Could not get clothes '{components.ElementAt( 0 )}'" );
-
-                SelectMaterial( components.ElementAt( 1 ) );
-                if( myMaterialName == null )
-                    throw new Exception( $"Could not get material '{components.ElementAt( 2 )}'" );
-
-                SelectTexture( full );
-                supportedShaderProperties.ForEach( srpc => srpc.val = (srpc.propName == slot.Property) );
-                ApplyTexture();
-
-                // Reset to known starting point.
-                supportedShaderProperties.ForEach( srpc => srpc.val = (srpc.propName == PROP_DIFFUSE || srpc.propName == PROP_CUTOUT) );
-            }
-        }
-
-        private void CollectTextures( List< TextureReference > toList, string prefix, string withBaseName, string inDir )
-        {
-            try
-            { 
-                string basename = withBaseName.ToLower();
-                toList.AddRange( SuperController.singleton
-                    .GetFilesAtPath( inDir )
-                    .Select( fp => fp.Remove( 0, inDir.Length + 1 ) )
-                    .Where( fp => fp.ToLower().StartsWith( basename ) || fp.StartsWith( "default" ) )
-                    .Select( fp => TextureReference.fromReference( $"{prefix}/{fp}" ) ) );
-            }
-            catch
-            {
-                // This space intentionally blank (directory may not exist)
-            }
-        }
-
-        private List< TextureReference > FindTextures( string indir, string withbasename )
-        {
-            List< TextureReference > textures = new List< TextureReference >();
-
-            // Add scene-local files to the list.
-            CollectTextures( textures, $"./{indir}", withbasename,
-                $"{SuperController.singleton.currentLoadDir}/Textures/Wardrobe/{indir}" );
-            CollectTextures( textures, $"./{indir}", withbasename,
-                $"{SuperController.singleton.currentLoadDir}/Textures/{indir}" );
-
-            // Add global texture files to the list
-            CollectTextures( textures, $"/{indir}", withbasename,
-                $"{SuperController.singleton.savesDir}../Textures/Wardrobe/{indir}" );
-            CollectTextures( textures, $"/{indir}", withbasename, 
-                $"{SuperController.singleton.savesDir}../Textures/{indir}" );
-
-            if( textures.Count() == 0 )
-            {
-                SuperController.LogMessage( "Could not find a replacement texture at either the scene or global Vam directory" );
-                SuperController.LogMessage( $"To replace this material, place a texture file named '{withbasename}.[png|jpg]' or `default.[png|jpg] in 'Textures/Wardrobe/{indir}'" );
-            }
-
-            return textures;
         }
 
         public void DumpButtonCallback()
         {
+            // Obtain the currently selected clothes.
+            DAZClothingItem clothes = GameObject
+                .FindObjectsOfType< DAZClothingItem >()
+                .Where( dci => dci.containingAtom == containingAtom )
+                .Where( dci => dci.name == clothingItems.val )
+                .DefaultIfEmpty( (DAZClothingItem) null )
+                .FirstOrDefault();
+
+            // Bug out if it doesn't exist.
+            if( clothes == null )
+            { 
+                SuperController.LogError( $"Could not finding clothing item '{clothingItems.val}'" );
+                return;
+            }
+
+            // Get the first skinwrap mesh.
             OBJExporter exporter = new OBJExporter();
-            DAZMesh mesh = myClothes.GetComponentsInChildren< DAZSkinWrap >()
+            DAZMesh mesh = clothes
+                .GetComponentsInChildren< DAZSkinWrap >()
                 .First().dazMesh;
 
-            exporter.Export( myClothes.name + ".obj", mesh.uvMappedMesh, mesh.uvMappedMesh.vertices, mesh.uvMappedMesh.normals, mesh.materials );
+            // Export
+            exporter.Export( clothes.name + ".obj", mesh.uvMappedMesh, mesh.uvMappedMesh.vertices, mesh.uvMappedMesh.normals, mesh.materials );
+        }
+        
+        private void ApplyOutfitCallback()
+        {
+            try
+            { 
+                if( clothingItems.val != null && outfitNames.val != null )
+                    ApplyOutfit( outfitNames.val, clothingItems.val );
+                storedOutfits.setOutfit( clothingItems.val, outfitNames.val );
+            }
+            catch( Exception ex )
+            {
+                SuperController.LogError( "Could not apply outfit: " + ex );
+            }
         }
 
+        private void ApplyOutfit( string outfitName, string forClothing )
+        {
+            SuperController.LogMessage( $"Trying to apply {outfitName} to {forClothing}" );
+            string sceneDirectory = $"{SuperController.singleton.currentLoadDir}/Textures/Wardrobe/{forClothing}";
+            string globalDirectory = $"{SuperController.singleton.savesDir}/../Textures/Wardrobe/{forClothing}";
+
+            string outfitDirectory = safeGetDirectories( sceneDirectory )
+                .Union( safeGetDirectories( globalDirectory ) )
+                .Where( dir => getBaseName( dir ).ToLower() == outfitName.ToLower() )
+                .DefaultIfEmpty( (string) null )
+                .FirstOrDefault();
+
+            SuperController.LogMessage( $"Have settled on {outfitDirectory} as the texture source" );
+            if( outfitDirectory == null )
+            {
+                SuperController.LogError( $"Outfit needs textures in '<vamOrScene>/Textures/Wardrobe/{forClothing}/{outfitName}'" );
+                return;
+            }
+
+            // Get the clothing item materials.
+            DAZClothingItem clothes = GameObject
+                .FindObjectsOfType< DAZClothingItem >()
+                .Where( dci => dci.containingAtom == myPerson )
+                .Where( dci => dci.name == forClothing )
+                .FirstOrDefault();
+            if( clothes == null )
+                throw new Exception( "Tried to apply '{outfitName}' to '{forClothing}' but '{myPerson.name}' isn't wearing that." );
+            
+            string[] files = SuperController.singleton.GetFilesAtPath( outfitDirectory );
+            
+            foreach( Material mat in clothes
+                .GetComponentsInChildren< DAZSkinWrap >()
+                .SelectMany( dsw => dsw.GPUmaterials ) )
+            {
+                ApplyTexture( outfitDirectory, mat, PROP_DIFFUSE );
+                ApplyTexture( outfitDirectory, mat, PROP_CUTOUT );
+                ApplyTexture( outfitDirectory, mat, PROP_NORMAL );
+                ApplyTexture( outfitDirectory, mat, PROP_SPEC );
+                ApplyTexture( outfitDirectory, mat, PROP_GLOSS );
+            }
+        }
+
+        //
+        // Outfit application methods
+
+        private void ApplyTexture( string outfitDirectory, Material mat, string property )
+        {
+            string textureFilename = texNames( mat, property )
+                .SelectMany( tn => SuperController.singleton.GetFilesAtPath( outfitDirectory, $"{tn}.*" ) )
+                .Select( tf =>
+                {
+                    SuperController.LogMessage( $"found outfit texture: {tf}" );
+                    return tf;
+                } )
+                .DefaultIfEmpty( (string) null )
+                .FirstOrDefault();
+
+            if( textureFilename != null )
+                textureLoader.withTexture( textureFilename, tex => mat.SetTexture( property, tex ) );
+        }
+        
+        private static IEnumerable< string > diffuseTexNames( Material mat )
+        {
+            if( mat.HasProperty( PROP_DIFFUSE ) )
+            { 
+                bool hasAlpha = mat.HasProperty( PROP_CUTOUT );
+
+                yield return $"{mat.name}D";
+                if( hasAlpha ) yield return $"{mat.name}";
+                yield return "defaultD";
+                if( hasAlpha ) yield return "default";
+            }
+        }
+
+        private static IEnumerable< string > alphaTexNames( Material mat )
+        {
+            if( mat.HasProperty( PROP_CUTOUT ) )
+            { 
+                bool hasDiffuse = mat.HasProperty( PROP_DIFFUSE );
+
+                yield return $"{mat.name}A";
+                if( hasDiffuse ) yield return $"{mat.name}";
+                yield return $"defaultA";
+                if( hasDiffuse ) yield return $"default";
+            }
+        }
+
+        private static IEnumerable< string > otherTexNames( Material mat, string propName, string suffix )
+        {
+            if( mat.HasProperty( propName ) )
+            {
+                yield return $"{mat.name}{suffix}";
+                yield return $"default{suffix}";
+            }
+        }
+
+        private static IEnumerable< string > texNames( Material mat, string propName )
+        {
+            switch( propName )
+            {
+                case PROP_DIFFUSE:
+                    return diffuseTexNames( mat );
+                case PROP_CUTOUT:
+                    return alphaTexNames( mat );
+                case PROP_GLOSS:
+                    return otherTexNames( mat, PROP_GLOSS, "G" );
+                case PROP_NORMAL:
+                    return otherTexNames( mat, PROP_NORMAL, "N" );
+                case PROP_SPEC:
+                    return otherTexNames( mat, PROP_SPEC, "S" );
+
+                default:
+                    throw new Exception( $"Unknown shader property '{propName}'" );
+            }
+        }
+
+        //
+        // Helper classes and utility methods
+        
         private class StorableReplacements : JSONStorableString
         {
-            private Dictionary< StorableSlot, TextureReference > entries = new Dictionary< StorableSlot, TextureReference >();
+            private Dictionary< string, string > entries = new Dictionary< string, string >();
 
             public StorableReplacements() : base( "replacements", "<placeholder>" )
             {
             }
 
-            public void setTextureReplacement( string slot, TextureReference storedName, List< string > shaderProps )
+            public void setOutfit( string clothingName, string outfitName )
             {
-                foreach( var property in shaderProps )
-                { 
-                    entries[ new StorableSlot( slot, property ) ] = storedName;
-                }
+                entries[ clothingName ] = outfitName;
             }
 
-            public IEnumerable< KeyValuePair< StorableSlot, TextureReference > > All()
+            public IEnumerable< KeyValuePair< string, string > > All()
             {
                 return entries;
             }
@@ -445,17 +404,11 @@ namespace chokaphi_VamDazz
 
             public override void RestoreFromJSON( JSONClass jc, bool restorePhysical = true, bool restoreAppearance = true )
             {
-                entries = new Dictionary< StorableSlot, TextureReference >();
-                if( ! jc.Keys.Contains( "version" ) )
+                entries = new Dictionary< string, string >();
+                if( ! jc.Keys.Contains( "version" ) || jc["version"].AsInt != 4 )
                 { 
                     // this is version 1, the undocumented
-                    SuperController.LogMessage( "Detected Wardrobe version 1, re-save to update" );
-                    ParseReplacementsV1( jc[ "replacements" ] as JSONClass );
-                }
-                else if( jc["version"].AsInt == 2 )
-                {
-                    SuperController.LogMessage( "Detected Wardrobe version 2, re-save to update" );
-                    ParseReplacementsV2( jc[ "replacements" ] as JSONArray );
+                    SuperController.LogError( "Cannot load Wardrobe v1 save. Everything has changed, sorry." );
                 }
                 else
                 {
@@ -468,8 +421,7 @@ namespace chokaphi_VamDazz
             {
                 foreach( JSONClass obj in replacements )
                 {
-                    entries[ new StorableSlot( obj["slot"], obj["shader"] ) ] =
-                        TextureReference.fromReference( obj["texture"].Value );
+                    entries[ obj["clothes" ] ] = obj[ "outfit" ];
                 }
             }
             
@@ -479,211 +431,52 @@ namespace chokaphi_VamDazz
                 foreach( var kvp in entries )
                 {
                     JSONClass obj = new JSONClass();
-                    obj["slot"] = kvp.Key.Material;
-                    obj["shader"] = kvp.Key.Property;
-                    obj["texture"] = kvp.Value.reference;
+                    obj["clothes"] = kvp.Key;
+                    obj["outfit"] = kvp.Value;
                     replacements.Add( obj );
                 }
 
-                jc.Add( "version", new JSONData( 3 ) );
+                jc.Add( "version", new JSONData( 4 ) );
                 jc.Add( "replacements", replacements );
                 return true;
             }
-
-            //
-            // Legacy support parsers
-
-            private void ParseReplacementsV1( JSONClass replacements )
-            {
-                foreach( JSONNode key in replacements.Keys )
-                {
-                    TextureReference texref = TextureReference.fromReference( replacements[key] );
-                    entries[ new StorableSlot( key, PROP_DIFFUSE ) ] = texref;
-                    entries[ new StorableSlot( key, PROP_CUTOUT ) ] = texref;
-                }
-            }
-            
-            private void ParseReplacementsV2( JSONArray replacements )
-            {
-                foreach( JSONClass obj in replacements )
-                {
-                    // Remove the skinwrap from the slot designator
-                    string[] comps = obj["slot"].Value.Split( '/' );
-                    string slot = $"{comps[0]}/{comps[2]}";
-
-                    // Remove the extra subdirectory
-                    entries[ new StorableSlot( slot, obj["shader"] ) ] =
-                        TextureReference.fromReference( obj["texture"].Value );
-                }
-            }
-
         }
 
-        private class StorableSlot
+        private static string[] safeGetDirectories( string inDir )
         {
-            public readonly string Material;
-            public readonly string Property;
-
-            public StorableSlot( string material, string property )
-            {
-                this.Material = material;
-                this.Property = property;
-            }
-
-            public override bool Equals( object obj )
-            {
-                if( obj is StorableSlot )
-                {
-                    StorableSlot s = (StorableSlot)obj;
-                    return s.Material == Material &&
-                        s.Property == Property;
-                }
-                return false;
-            }
-
-            public override int GetHashCode()
-            {
-                const int hashbase = 7;
-                const int hashmult = 13;
-                int hash = hashbase;
-                hash = (hash * hashmult) ^ (object.ReferenceEquals( Material, null ) ? 0 : Material.GetHashCode() );
-                hash = (hash * hashmult) ^ (object.ReferenceEquals( Property, null ) ? 0 : Material.GetHashCode() );
-                return hash;
-            }
-        }
-
-        private static bool FileExists( string file )
-        {
-            string[] components = file.Split( '/', '\\' );
-            string filename = components.Last();
-            string directory = components.Take( components.Length - 1 )
-                .Aggregate( (l, r) => l.Length > 0 && r.Length > 0 ? $"{l}/{r}" : $"{l}{r}" );
-            
             try
-            { 
-                return 0 < SuperController.singleton.GetFilesAtPath( directory )
-                    .Where( df => df.Split( '/', '\\' ).Last().ToLower() == filename.ToLower() )
-                    .Count();
+            {
+                return SuperController.singleton.GetDirectoriesAtPath( inDir );
             }
             catch
             {
-                // Directory probably doesn't exist
-                return false;
+                return new string[0];
             }
         }
-
-        private class TextureReference
+        
+        // Get the basename (last part of a path, usually filename) from a fully qualified filename.
+        private static string getBaseName( string fqfn )
         {
-            public readonly bool local;
-            public readonly string reference;
-            public readonly string filename;
-            
-            public string Abbreviation
-            {
-                get {
-                    var locality = local ? "<scene>" : "<global>";
-                    var basename = reference.Split( '/', '\\' ).Last();
-                    return $"{locality}/{basename}";
-                }
-            }
-
-            public TextureReference( bool local, string reference, string filename )
-            {
-                this.local = local;
-                this.reference = reference;
-                this.filename = filename;
-            }
-
-            public override string ToString()
-            {
-                return reference;
-            }
-
-            public static TextureReference fromReference( string storedName )
-            {
-                bool local;
-                string filename;
-
-                string basedir;
-                string basename;
-
-                if( storedName.StartsWith( "./" ) )
-                {
-                    local = true;
-                    basedir = $"{SuperController.singleton.currentLoadDir}/Textures";
-                    basename = storedName.Remove( 0, 2 );
-                }
-                else
-                {
-                    local = false;
-                    basedir = $"{SuperController.singleton.savesDir}/../Textures";
-                    basename = storedName.Remove( 0, 1 );
-                }
-
-                filename = $"{basedir}/Wardrobe/{basename}";
-                if( ! FileExists( filename ) )
-                { 
-                    filename = $"{basedir}/{basename}";
-                    if( ! FileExists( filename ) )
-                        SuperController.LogError( "Could not find texture reference " + storedName );
-                }
-
-                return new TextureReference( local, storedName, filename );
-            }
+            string[] comps = fqfn.Split( '\\', '/' );
+            return comps[ comps.Length - 1 ];
         }
 
-        private class ShaderRefControl : JSONStorableBool
+        private static string removeExt( string fn )
         {
-            public readonly string propName;
-            public UIDynamicToggle ui;
-
-            private bool masked;
-            private bool wasEnabled;
-
-            public ShaderRefControl( MVRScript parent, string displayName, string propName, bool startingValue )
-                : base( displayName, startingValue )
-            {
-                this.propName = propName;
-                this.wasEnabled = startingValue;
-                ui = parent.CreateToggle( this, false );
-            }
-
-            public void MaskMaterial( Material material )
-            {
-                if( material.HasProperty( propName ) )
-                { 
-                    ClearMask();
-                }
-                else
-                {
-
-                    // Store our current value (if we're not already masked)
-                    if( ! masked )
-                        wasEnabled = val;
-
-                    // Disable and uncheck ourselves.
-                    ui.toggle.interactable = false;
-                    val = false;
-                    masked = true;
-                }
-            }
-
-            public void ClearMask()
-            {
-                if( masked ) 
-                    val = wasEnabled;
-
-                ui.toggle.interactable = true;
-                masked = false;
-            }
+            return fn.Substring( 0, fn.LastIndexOf( '.' ) );
         }
 
-        private static List< string > EMPTY_CHOICES = new List< string >();
-        private static readonly string PROP_DIFFUSE = "_MainTex";
-        private static readonly string PROP_CUTOUT  = "_AlphaTex";
-        private static readonly string PROP_NORMAL  = "_BumpMap";
-        private static readonly string PROP_GLOSS   = "_GlossTex";
-        private static readonly string PROP_SPEC    = "_SpecTex";
+        private static string onlyExt( string fn )
+        {
+            return fn.Substring( fn.LastIndexOf( '.' ) + 1 );
+        }
+
+        private static readonly List< string > EMPTY_CHOICES = new List< string >();
+        private const string PROP_DIFFUSE = "_MainTex";
+        private const string PROP_CUTOUT  = "_AlphaTex";
+        private const string PROP_NORMAL  = "_BumpMap";
+        private const string PROP_GLOSS   = "_GlossTex";
+        private const string PROP_SPEC    = "_SpecTex";
     }
 
 }
