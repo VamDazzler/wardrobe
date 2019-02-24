@@ -26,6 +26,7 @@ namespace VamDazzler
         //person script is attatched too
         Atom myPerson;
         JSONStorableStringChooser clothingItems, outfitNames;
+        JSONStorableString materialList;
         UIDynamicButton applyButton, dumpButton;
         StorableReplacements storedOutfits;
 
@@ -80,6 +81,11 @@ namespace VamDazzler
                     dumpButton.button.onClick.AddListener(DumpButtonCallback);
                     dumpButton.button.interactable = false;
                 }
+
+                // Create the material listing window
+                materialList = new JSONStorableString( "matlist", "" );
+                UIDynamicTextField matListTextField = CreateTextField( materialList, true );
+                matListTextField.height = 400f;
             }
             catch( Exception ex )
             {
@@ -176,6 +182,9 @@ namespace VamDazzler
 
                 // No clothing selected, disable dumping OBJs.
                 dumpButton.button.interactable = false;
+
+                // Update the material list to show nothing
+                materialList.val = "(material list, select clothes)";
             }
             else if( clothingName == "REFRESH" )
             {
@@ -184,7 +193,23 @@ namespace VamDazzler
             }
             else
             {
+                // Turn on the OBJ dump
                 dumpButton.button.interactable = true;
+                
+                // Create the list of materials.
+                string matlist = GameObject
+                    .FindObjectsOfType< DAZClothingItem >()
+                    .Where( dci => dci.containingAtom == containingAtom )
+                    .Where( dci => dci.name == clothingName )
+                    .First()
+                    .GetComponentsInChildren< DAZSkinWrap >()
+                    .First()
+                    .GPUmaterials
+                    .Select( mat => mat.name )
+                    .Aggregate( (l,r) => l.Length > 0 && r.Length > 0 ? $"{l}\n{r}" : $"{l}{r}" );
+                materialList.val = matlist;
+
+                // Get a list of outfits
                 List< string > outfits = FindOutfits( clothingName ).ToList();
                 outfitNames.choices = outfits;
 
