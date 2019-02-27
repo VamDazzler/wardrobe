@@ -42,6 +42,37 @@ The types are based on the way the texture should be used
 - none: If the texture type is omitted, it will be both diffuse and
         alpha (using the alpha channel of the texture image)
 
+### Example Wardrobe folder structure
+
+    Wardrobe
+    ├── basicunderwear
+    │   └── Simple
+    │       └── default.png
+    ├── GardenPartyDress
+    │   ├── Cream
+    │   │   ├── defaultN.png
+    │   │   ├── default.png
+    │   └── Pinstripes
+    │       ├── defaultD.png
+    │       ├── Skirt-1.png
+    │       └── defaultN.tif
+    └── NoirSocks
+        └── Socks, Sport
+            ├── defaultN.png
+            └── default.png
+
+The above defines textures for three different pieces of clothing:
+Basic Underwear, the Garden Party Dress, and the Stockings.
+
+The Garden Party Dress has two custom texture collections: "Cream" and
+"Pinstripes" which can be selected in the second dropdown in the
+plugin menu.
+
+The "Pinstripes" will have `defaultD.png` applied as color for all
+parts of the dress except the skirt, which will get `Skirt-1.png` for
+both color and alpha (transparency). Additionally the normal map
+`defaultN.tif` will apply to all parts of the dress (including the skirt).
+
 Obtaining geometry with UV maps
 -------------------------------
 
