@@ -21,7 +21,7 @@ namespace VamDazzler
         //person script is attatched too
         JSONStorableStringChooser clothingItems, outfitNames;
         JSONStorableString materialList;
-        UIDynamicButton applyButton, dumpButton;
+        UIDynamicButton applyButton, dumpButton, forceReloadButton;
         StorableReplacements storedOutfits;
         Dictionary< KeyValuePair< Material, string >, Texture > originalTextures = new Dictionary<KeyValuePair<Material, string>, Texture>();
 
@@ -65,6 +65,10 @@ namespace VamDazzler
                 // Action to perform replacement
                 applyButton = CreateButton( "Apply" );
                 applyButton.button.onClick.AddListener( ApplyOutfitCallback );
+
+                // Force reload
+                forceReloadButton = CreateButton( "Refresh Textures" );
+                forceReloadButton.button.onClick.AddListener( ForceReloadCallback );
                 
                 // Create a dump button
                 UIDynamic align = CreateSpacer( true );
@@ -98,7 +102,7 @@ namespace VamDazzler
                     {
                         try
                         {
-                            ApplyOutfit( entry.Value, entry.Key );
+                            ApplyOutfit( entry.Key, entry.Value );
                         }
                         catch( Exception ex )
                         {
@@ -145,18 +149,6 @@ namespace VamDazzler
                 disableUpdate = true;
             }
         }
-
-        private IEnumerable< string > FindOutfits( string forClothing )
-        {
-            string localDirectory = $"{SuperController.singleton.currentLoadDir}/Textures/Wardrobe/{forClothing}";
-            string globalDirectory = $"{SuperController.singleton.savesDir}/../Textures/Wardrobe/{forClothing}";
-
-            // Collect outfit directories from both the scene and global levels.
-            return safeGetDirectories( localDirectory ).Union( safeGetDirectories( globalDirectory ) )
-                .Select( getBaseName )
-                .Where( bn => bn.ToLower() != "psd" )
-                .Distinct( StringComparer.OrdinalIgnoreCase );
-        }
         
         //
         // UI action callbacks
@@ -174,8 +166,9 @@ namespace VamDazzler
                 clothings.Insert( 0, "REFRESH" );
                 clothingItems.choices = clothings;
 
-                // No clothing selected, disable dumping OBJs.
+                // No clothing selected, disable dumping OBJs and reloading textures.
                 dumpButton.button.interactable = false;
+                forceReloadButton.button.interactable = false;
 
                 // Update the material list to show nothing
                 materialList.val = "(material list, select clothes)";
@@ -187,9 +180,10 @@ namespace VamDazzler
             }
             else
             {
-                // Turn on the OBJ dump
+                // Turn on the OBJ dump and forced texture reload
                 dumpButton.button.interactable = true;
-                
+                forceReloadButton.button.interactable = true;
+
                 // Create the list of materials.
                 string matlist = GameObject
                     .FindObjectsOfType< DAZClothingItem >()
@@ -268,7 +262,7 @@ namespace VamDazzler
             try
             { 
                 if( clothingItems.val != null && outfitNames.val != null )
-                    ApplyOutfit( outfitNames.val, clothingItems.val );
+                    ApplyOutfit( clothingItems.val, outfitNames.val );
                 storedOutfits.setOutfit( clothingItems.val, outfitNames.val );
             }
             catch( Exception ex )
@@ -277,22 +271,29 @@ namespace VamDazzler
             }
         }
 
-        private void ApplyOutfit( string outfitName, string forClothing )
+        private void ForceReloadCallback()
         {
-            string sceneDirectory = $"{SuperController.singleton.currentLoadDir}/Textures/Wardrobe/{forClothing}";
-            string globalDirectory = $"{SuperController.singleton.savesDir}/../Textures/Wardrobe/{forClothing}";
-
-            string outfitDirectory = safeGetDirectories( sceneDirectory )
-                .Union( safeGetDirectories( globalDirectory ) )
-                .Where( dir => getBaseName( dir ).ToLower() == outfitName.ToLower() )
-                .DefaultIfEmpty( (string) null )
-                .FirstOrDefault();
-
-            if( outfitDirectory == null )
+            try 
             {
-                SuperController.LogError( $"Outfit needs textures in '<vamOrScene>/Textures/Wardrobe/{forClothing}/{outfitName}'" );
-                return;
+                string outfitName = storedOutfits.getOutfit( clothingItems.val );
+
+                if( outfitName != null )
+                { 
+                    ApplyOutfit( clothingItems.val, outfitNames.val );
+                }
             }
+            catch( Exception ex )
+            {
+                SuperController.LogError( "Could not reload textures: " + ex );
+            }
+        }
+
+        //
+        // Outfit application methods
+
+        private void ApplyOutfit( string forClothing, string outfitName )
+        {
+            string outfitDirectory = FindOutfitDirectory( forClothing, outfitName );
 
             // Get the clothing item materials.
             DAZClothingItem clothes = GameObject
@@ -316,9 +317,14 @@ namespace VamDazzler
                 ApplyTexture( outfitDirectory, mat, PROP_GLOSS );
             }
         }
+        
+        private void ExpireOutfitTextures( string forClothing, string outfitName )
+        {
+            string outfitDirectory = FindOutfitDirectory( forClothing, outfitName );
+            textureLoader.ExpireDirectory( outfitDirectory );
 
-        //
-        // Outfit application methods
+            ApplyOutfit( forClothing, outfitName );
+        }
 
         private void ApplyTexture( string outfitDirectory, Material mat, string property )
         {
@@ -342,7 +348,7 @@ namespace VamDazzler
                     mat.SetTexture( property, originalTextures[ key ] );
             }
         }
-        
+
         private static IEnumerable< string > diffuseTexNames( Material mat )
         {
             if( mat.HasProperty( PROP_DIFFUSE ) )
@@ -400,7 +406,38 @@ namespace VamDazzler
 
         //
         // Helper classes and utility methods
+
+        private IEnumerable< string > FindOutfits( string forClothing )
+        {
+            string localDirectory = $"{SuperController.singleton.currentLoadDir}/Textures/Wardrobe/{forClothing}";
+            string globalDirectory = $"{SuperController.singleton.savesDir}/../Textures/Wardrobe/{forClothing}";
+
+            // Collect outfit directories from both the scene and global levels.
+            return safeGetDirectories( localDirectory ).Union( safeGetDirectories( globalDirectory ) )
+                .Select( getBaseName )
+                .Where( bn => bn.ToLower() != "psd" )
+                .Distinct( StringComparer.OrdinalIgnoreCase );
+        }
         
+        private string FindOutfitDirectory( string forClothing, string outfitName )
+        {
+            string sceneDirectory = $"{SuperController.singleton.currentLoadDir}/Textures/Wardrobe/{forClothing}";
+            string globalDirectory = $"{SuperController.singleton.savesDir}/../Textures/Wardrobe/{forClothing}";
+
+            string outfitDirectory = safeGetDirectories( sceneDirectory )
+                .Union( safeGetDirectories( globalDirectory ) )
+                .Where( dir => getBaseName( dir ).ToLower() == outfitName.ToLower() )
+                .DefaultIfEmpty( (string) null )
+                .FirstOrDefault();
+
+            if( outfitDirectory == null )
+            {
+                throw new Exception( "Outfit needs textures in '<vamOrScene>/Textures/Wardrobe/{forClothing}/{outfitName}'" );
+            }
+
+            return outfitDirectory;
+        }
+
         private class StorableReplacements : JSONStorableString
         {
             private Dictionary< string, string > entries = new Dictionary< string, string >();
@@ -412,6 +449,16 @@ namespace VamDazzler
             public void setOutfit( string clothingName, string outfitName )
             {
                 entries[ clothingName ] = outfitName;
+            }
+
+            public string getOutfit( string clothingName )
+            {
+                return entries[ clothingName ];
+            }
+
+            public bool IsOutfitted( string clothingName )
+            {
+                return entries.ContainsKey( clothingName );
             }
 
             public IEnumerable< KeyValuePair< string, string > > All()

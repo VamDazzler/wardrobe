@@ -33,6 +33,21 @@ namespace VamDazzler
             }
         }
 
+        /**
+         * Expire (remove) textures from the cache so that they can be reloaded.
+         */
+        public void ExpireDirectory( string directory )
+        {
+            List< string > files = new List<string>();
+            foreach( KeyValuePair< string, TextureState > file in textureCache )
+            {
+                if( file.Key.StartsWith( directory ) )
+                    files.Add( file.Key );
+            }
+
+            files.ForEach( f => textureCache.Remove( f ) );
+        }
+
         // A simple class to maintain the state of, and act on, loaded textures
         private class TextureState
         {
