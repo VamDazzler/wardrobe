@@ -231,29 +231,36 @@ namespace VamDazzler
 
         public void DumpButtonCallback()
         {
-            // Obtain the currently selected clothes.
-            DAZClothingItem clothes = GameObject
-                .FindObjectsOfType< DAZClothingItem >()
-                .Where( dci => dci.containingAtom == containingAtom )
-                .Where( dci => dci.name == clothingItems.val )
-                .DefaultIfEmpty( (DAZClothingItem) null )
-                .FirstOrDefault();
-
-            // Bug out if it doesn't exist.
-            if( clothes == null )
+            try
             { 
-                SuperController.LogError( $"Could not finding clothing item '{clothingItems.val}'" );
-                return;
+                // Obtain the currently selected clothes.
+                DAZClothingItem clothes = GameObject
+                    .FindObjectsOfType< DAZClothingItem >()
+                    .Where( dci => dci.containingAtom == containingAtom )
+                    .Where( dci => dci.name == clothingItems.val )
+                    .DefaultIfEmpty( (DAZClothingItem) null )
+                    .FirstOrDefault();
+
+                // Bug out if it doesn't exist.
+                if( clothes == null )
+                { 
+                    SuperController.LogError( $"Could not finding clothing item '{clothingItems.val}'" );
+                    return;
+                }
+
+                // Get the first skinwrap mesh.
+                DAZMesh mesh = clothes
+                    .GetComponentsInChildren< DAZMesh >()
+                    .FirstOrDefault();
+
+                // Export
+                OBJExporter exporter = new OBJExporter();
+                exporter.Export( clothes.name + ".obj", mesh.uvMappedMesh, mesh.uvMappedMesh.vertices, mesh.uvMappedMesh.normals, mesh.materials );
             }
-
-            // Get the first skinwrap mesh.
-            OBJExporter exporter = new OBJExporter();
-            DAZMesh mesh = clothes
-                .GetComponentsInChildren< DAZSkinWrap >()
-                .First().dazMesh;
-
-            // Export
-            exporter.Export( clothes.name + ".obj", mesh.uvMappedMesh, mesh.uvMappedMesh.vertices, mesh.uvMappedMesh.normals, mesh.materials );
+            catch( Exception ex )
+            {
+                SuperController.LogMessage( $"Could not export OBJ file for this clothing item: {ex}" );
+            }
         }
         
         private void ApplyOutfitCallback()
