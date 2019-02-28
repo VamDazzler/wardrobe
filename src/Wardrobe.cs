@@ -276,6 +276,10 @@ namespace VamDazzler
             try 
             {
                 string outfitName = storedOutfits.getOutfit( clothingItems.val );
+                string outfitDirectory = FindOutfitDirectory( clothingItems.val, outfitName );
+
+                // Expire the textures in the outfit's directory
+                textureLoader.ExpireDirectory( outfitDirectory );
 
                 if( outfitName != null )
                 { 
