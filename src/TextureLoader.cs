@@ -70,11 +70,14 @@ namespace VamDazzler
          */
         public void ExpireDirectory( string directory )
         {
+            string dirLower = directory.ToLower();
             List< string > files = new List<string>();
             foreach( KeyValuePair< string, TextureState > file in textureCache )
             {
-                if( file.Key.StartsWith( directory ) )
+                if( file.Key.ToLower().StartsWith( dirLower ) )
+                { 
                     files.Add( file.Key );
+                }
             }
 
             files.ForEach( f => textureCache.Remove( f ) );
