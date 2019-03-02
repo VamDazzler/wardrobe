@@ -314,11 +314,11 @@ namespace VamDazzler
                 .GetComponentsInChildren< DAZSkinWrap >()
                 .SelectMany( dsw => dsw.GPUmaterials ) )
             {
-                ApplyTexture( outfitDirectory, mat, PROP_DIFFUSE );
-                ApplyTexture( outfitDirectory, mat, PROP_CUTOUT );
-                ApplyTexture( outfitDirectory, mat, PROP_NORMAL );
-                ApplyTexture( outfitDirectory, mat, PROP_SPEC );
-                ApplyTexture( outfitDirectory, mat, PROP_GLOSS );
+                ApplyTexture( outfitDirectory, mat, PROP_DIFFUSE, VDTextureLoader.TYPE_DIFFUSE );
+                ApplyTexture( outfitDirectory, mat, PROP_CUTOUT, VDTextureLoader.TYPE_DIFFUSE );
+                ApplyTexture( outfitDirectory, mat, PROP_NORMAL, VDTextureLoader.TYPE_NORMAL );
+                ApplyTexture( outfitDirectory, mat, PROP_SPEC, VDTextureLoader.TYPE_SPECULAR );
+                ApplyTexture( outfitDirectory, mat, PROP_GLOSS, VDTextureLoader.TYPE_GLOSS );
             }
         }
         
@@ -330,7 +330,7 @@ namespace VamDazzler
             ApplyOutfit( forClothing, outfitName );
         }
 
-        private void ApplyTexture( string outfitDirectory, Material mat, string property )
+        private void ApplyTexture( string outfitDirectory, Material mat, string property, int ttype )
         {
             string textureFilename = texNames( mat, property )
                 .SelectMany( tn => SuperController.singleton.GetFilesAtPath( outfitDirectory, $"{tn}.*" ) )
@@ -344,7 +344,7 @@ namespace VamDazzler
                 if( ! originalTextures.ContainsKey( key ) )
                     originalTextures[ key ] = mat.GetTexture( property );
 
-                textureLoader.withTexture( textureFilename, tex => mat.SetTexture( property, tex ) );
+                textureLoader.withTexture( textureFilename, ttype, tex => mat.SetTexture( property, tex ) );
             }
             else
             {

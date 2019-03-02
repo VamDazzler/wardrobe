@@ -5,6 +5,11 @@ namespace VamDazzler
 {
     public class VDTextureLoader
     {
+        public const int TYPE_DIFFUSE = 0;
+        public const int TYPE_NORMAL  = 1;
+        public const int TYPE_SPECULAR = 2;
+        public const int TYPE_GLOSS    = 3;
+
         public delegate void TextureCallback( Texture2D t2d );
 
         private Dictionary< string, TextureState > textureCache = new Dictionary< string, TextureState >();
@@ -12,7 +17,7 @@ namespace VamDazzler
         /**
          * Load (or reuse) a texture from a file to perform an action.
          */
-        public void withTexture( string textureFile, TextureCallback action )
+        public void withTexture( string textureFile, int textureType, TextureCallback action )
         {
             if( textureCache.ContainsKey( textureFile ) )
             {
@@ -25,10 +30,37 @@ namespace VamDazzler
                 newState.withTexture( action );
                 textureCache[ textureFile ] = newState;
 
+                bool createMipMaps = true;
+                bool linear = false;
+                bool isNormal = false;
+                bool compress = true;
+
+                switch( textureType )
+                {
+                    case TYPE_SPECULAR:
+                    case TYPE_GLOSS:
+                        linear = true;
+                        break;
+
+                    case TYPE_NORMAL:
+                        linear = true;
+                        isNormal = true;
+                        compress = false;
+                        break;
+
+                    default:
+                        break;
+                }
+
                 // Begin loading the texture
                 var img = new ImageLoaderThreaded.QueuedImage();
                 img.imgPath = textureFile;
                 img.callback = qimg => newState.applyTexture( qimg );
+                img.createMipMaps = createMipMaps;
+                img.isNormalMap = isNormal;
+                img.linear = linear;
+                img.compress = compress;
+
                 ImageLoaderThreaded.singleton.QueueImage( img );
             }
         }
